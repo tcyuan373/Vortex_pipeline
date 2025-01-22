@@ -24,6 +24,7 @@ from transformers.models.bert.modeling_bert import BertModel
 from transformers.models.clip import CLIPVisionModel
 from configuration_flmr import FLMRConfig, FLMRTextConfig, FLMRVisionConfig
 from modeling_pretrained_model import FLMRPreTrainedModel
+from torchinfo import summary
 
 
 # Modified from transformers.models.clip.modeling_clip with CLIP -> FLMR
@@ -99,3 +100,8 @@ class FLMRVisionModel(FLMRPreTrainedModel):
         
 if __name__=="__main__":
     model = FLMRVisionModel.from_pretrained("openai/clip-vit-base-patch16")
+    model.vision_model.cuda()
+    # summary(model.vision_model, input_data=torch.randn(2, 3, 224, 224).to(torch.float32).cuda())
+    input_data=torch.randn(2, 3, 224, 224).to(torch.float32).cuda()
+    output = model(input_data)
+    

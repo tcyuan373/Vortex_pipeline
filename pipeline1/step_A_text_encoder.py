@@ -168,4 +168,4 @@ if __name__ == '__main__':
     model = FLMRTextModel(FLMRTextConfig())
     model.cuda()
     output = model(*input)
-    summary(model.text_model, input_data=torch.ones(2, 512).to(torch.int).cuda(), device='cuda')
+    summary(model.text_model, input_data=torch.ones(2, 512).to(torch.int).cuda())
