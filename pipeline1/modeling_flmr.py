@@ -39,6 +39,8 @@ from transformers.utils import (
 )
 from transformers.models.bert.modeling_bert import BertModel
 from transformers.models.clip import CLIPVisionModel
+
+# convert the configuration
 from .configuration_flmr import FLMRConfig, FLMRTextConfig, FLMRVisionConfig
 from .tokenization_flmr import FLMRQueryEncoderTokenizer, FLMRContextEncoderTokenizer
 from .tokenization_flmr_fast import FLMRQueryEncoderTokenizerFast, FLMRContextEncoderTokenizerFast

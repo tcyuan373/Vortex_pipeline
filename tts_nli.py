@@ -4,8 +4,6 @@ import torch, time
 import soundfile as sf
 from datasets import load_dataset
 
-
-
 processor = SpeechT5Processor.from_pretrained("microsoft/speecht5_tts")
 model = SpeechT5ForTextToSpeech.from_pretrained("microsoft/speecht5_tts").cuda()
 vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan").cuda()
