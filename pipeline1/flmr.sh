@@ -1,5 +1,5 @@
-conda create -n FLMR python=3.12 -y
-conda activate FLMR
+#conda create -n FLMR python=3.12 -y
+#conda activate FLMR
 
 #faiss gpu
 # conda install -c pytorch/label/nightly -c nvidia faiss-gpu
