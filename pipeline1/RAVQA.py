@@ -12,3 +12,11 @@ model = AutoModel.from_pretrained(checkpoint_path,
                                 trust_remote_code=True,
                                 )
 image_processor = AutoImageProcessor.from_pretrained(image_processor_name)
+
+
+
+# img             = img_pro(img)
+# query_tok_ids   = query_tokenizer
+# ctx_tok_ids     = context_tokenizer...
+# input           = pck_input(img, query_tok_ids, ctx_tok_ids)
+# model(*input)

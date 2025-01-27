@@ -169,3 +169,4 @@ if __name__ == '__main__':
     model.cuda()
     output = model(*input)
     summary(model.text_model, input_data=torch.ones(2, 512).to(torch.int).cuda())
+    # input = tok(raw_text)

@@ -68,10 +68,13 @@ class FLMRMultiLayerPerceptron(nn.Module):
 # MLP sizes
 # (
 #     self.vision_encoder_embedding_size, 768
-#     (self.late_interaction_embedding_size * self.mapping_network_prefix_length) // 2,  128 * 32 //2
+#     (self.late_interaction_embedding_size * self.mapping_network_prefix_length) // 2,
 #     self.late_interaction_embedding_size * self.mapping_network_prefix_length,   128*32
 # )
         
         
-if __name__ == "__main__":
-    FLMRMultiLayerPerceptron((768, 128*32 //2 , 128*32))
+if __name__ == "__main__": #(B * vector dim)
+    input_data = torch.randn(3,768).cuda()
+    model = FLMRMultiLayerPerceptron((768, 128*32 //2 , 128*32)).cuda()
+    output = model(input_data)
+    print(output.shape)
