@@ -1,4 +1,8 @@
 __pycache__
 *wav
 *log*
-test_experiment
+test_experiment/*/*
+**indexes
+pipeline1/test_experiment/*/*/*
+**json
+**pt
