@@ -1,0 +1,4 @@
+After loading model memory allocated: 38.03 MB
+After loading model memory reserved: 54.00 MB
+After running model memory allocated: 46.23 MB
+After running model memory reserved: 54.00 MB
