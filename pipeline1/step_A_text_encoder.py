@@ -171,16 +171,16 @@ if __name__ == '__main__':
     output_to_host_times = []
     model.cuda()
     for i in range(100):
-        input = torch.ones(2, 512).to(torch.int)
+        input_data = torch.ones(32, 50).to(torch.int).cuda()
         # time before put to GPU
         start_time =0
-        input.cuda()
         # time after put to GPU
         end_time = 0
         load_input_times.append(end_time-start_time)
-        output = model(input)
-        
-        output.to("cpu")
+        output = model(input_data)
+                
+        for element in output:
+            output[element].cpu()
         
         
     

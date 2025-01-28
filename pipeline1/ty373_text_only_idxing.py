@@ -26,9 +26,9 @@ model = FLMRModelForRetrieval.from_pretrained(
 image_processor = AutoImageProcessor.from_pretrained(image_processor_name)
 
 
-num_items = 1
+num_items = 100
 feature_dim = 1664
-passage_contents = f"This is test sentence {num_items}" 
+passage_contents = [f"This is test sentence {n}" for n in range(num_items) ]
 # Option 1. text-only documents
 custom_collection = passage_contents
 # Option 2. multi-modal documents with pre-extracted image features
