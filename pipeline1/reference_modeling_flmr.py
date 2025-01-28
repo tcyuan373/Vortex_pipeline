@@ -70,130 +70,6 @@ FLMR_PRETRAINED_MODEL_ARCHIVE_LIST = [
 ##########
 
 
-@dataclass
-class FLMRContextEncoderOutput(ModelOutput):
-    """
-    Class for outputs of the `doc()` function of [`FLMRModelForRetrieval`].
-
-    Args:
-        pooler_output (`torch.FloatTensor` of shape `(batch_size, embeddings_size)`):
-            The FLMR encoder outputs the *pooler_output* that corresponds to the embedding of the first token of the context representation.
-            This output can be used to embed questions for nearest neighbors queries with query embeddings.
-        late_interaction_output (`torch.FloatTensor` of shape `(batch_size, context_embedding_length, embeddings_size)`):
-            The FLMR encoder outputs the *late_interaction_output* that corresponds to the question representation. The embeddings of all tokens are included for late interaction retrieval.
-            This output is to be used to embed contexts for late-interaction retrieval with query embeddings.
-        context_mask (`torch.FloatTensor` of shape `(batch_size, context_embedding_length)`):
-            The FLMR encoder outputs the *context_mask* that corresponds to the mask of the context representation.
-        text_encoder_attentions (`Tuple[torch.FloatTensor]`, *optional*):
-            Tuple of elements containing the attention weights of the text encoder's layers. Each element is a
-            tensor of shape `(batch_size, num_heads, sequence_length, sequence_length)`.
-        text_encoder_hidden_states (`Tuple[torch.FloatTensor]`, *optional*):
-            Tuple of elements containing the hidden states of the text encoder at each layer plus the initial embedding
-            outputs. Each tensor has a shape of `(batch_size, sequence_length, hidden_size)`.
-        vision_encoder_attentions (`Tuple[torch.FloatTensor]`, *optional*):
-            Tuple of elements containing the attention weights of the vision encoder's layers. Each element is a
-            tensor of shape `(batch_size, num_heads, vision_sequence_length, vision_sequence_length)`.
-        vision_encoder_hidden_states (`Tuple[torch.FloatTensor]`, *optional*):
-            Tuple of elements containing the hidden states of the vision encoder at each layer plus the initial embedding
-            outputs. Each tensor has a shape of `(batch_size, vision_sequence_length, hidden_size)`.
-        transformer_mapping_network_attentions (`Tuple[torch.FloatTensor]`, *optional*):
-            Tuple of elements containing the attention weights of the transformer mapping network's layers. Each element
-            is a tensor of shape `(batch_size, num_heads, mapping_sequence_length, mapping_sequence_length)`.
-        transformer_mapping_network_hidden_states (`Tuple[torch.FloatTensor]`, *optional*):
-            Tuple of elements containing the hidden states of the transformer mapping network at each layer plus the
-            initial embedding outputs. Each tensor has a shape of `(batch_size, mapping_sequence_length, hidden_size)`.
-    """
-
-    pooler_output: torch.FloatTensor
-    late_interaction_output: torch.FloatTensor = None
-    context_mask: torch.FloatTensor = None
-    text_encoder_attentions: Optional[Tuple[Tensor]] = None
-    text_encoder_hidden_states: Optional[Tuple[Tensor]] = None
-    vision_encoder_attentions: Optional[Tuple[Tensor]] = None
-    vision_encoder_hidden_states: Optional[Tuple[Tensor]] = None
-    transformer_mapping_network_attentions: Optional[Tuple[Tensor]] = None
-    transformer_mapping_network_hidden_states: Optional[Tuple[Tensor]] = None
-
-
-@dataclass
-class FLMRQueryEncoderOutput(ModelOutput):
-    """
-    Class for outputs of the `query()` function of [`FLMRModelForRetrieval.query()`].
-
-    Args:
-        pooler_output (`torch.FloatTensor` of shape `(batch_size, embeddings_size)`):
-            The FLMR encoder outputs the *pooler_output* that corresponds to the embedding of the first token of the query representation.
-            This output can be used to embed questions for nearest neighbors queries with context embeddings.
-        late_interaction_output (`torch.FloatTensor` of shape `(batch_size, query_embedding_length, embeddings_size)`):
-            The FLMR encoder outputs the *late_interaction_output* that corresponds to the question representation. The embeddings of all tokens are included for late interaction retrieval.
-            This output is to be used to embed questions for late-interaction retrieval with context embeddings.
-        text_encoder_attentions (`Tuple[torch.FloatTensor]`, *optional*):
-            Tuple of elements containing the attention weights of the text encoder's layers. Each element is a
-            tensor of shape `(batch_size, num_heads, sequence_length, sequence_length)`.
-        text_encoder_hidden_states (`Tuple[torch.FloatTensor]`, *optional*):
-            Tuple of elements containing the hidden states of the text encoder at each layer plus the initial embedding
-            outputs. Each tensor has a shape of `(batch_size, sequence_length, hidden_size)`.
-        vision_encoder_attentions (`Tuple[torch.FloatTensor]`, *optional*):
-            Tuple of elements containing the attention weights of the vision encoder's layers. Each element is a
-            tensor of shape `(batch_size, num_heads, vision_sequence_length, vision_sequence_length)`.
-        vision_encoder_hidden_states (`Tuple[torch.FloatTensor]`, *optional*):
-            Tuple of elements containing the hidden states of the vision encoder at each layer plus the initial embedding
-            outputs. Each tensor has a shape of `(batch_size, vision_sequence_length, hidden_size)`.
-        transformer_mapping_network_attentions (`Tuple[torch.FloatTensor]`, *optional*):
-            Tuple of elements containing the attention weights of the transformer mapping network's layers. Each element
-            is a tensor of shape `(batch_size, num_heads, mapping_sequence_length, mapping_sequence_length)`.
-        transformer_mapping_network_hidden_states (`Tuple[torch.FloatTensor]`, *optional*):
-            Tuple of elements containing the hidden states of the transformer mapping network at each layer plus the
-            initial embedding outputs. Each tensor has a shape of `(batch_size, mapping_sequence_length, hidden_size)`.
-    """
-
-    pooler_output: torch.FloatTensor
-    late_interaction_output: torch.FloatTensor = None
-    text_encoder_attentions: Optional[Tuple[Tensor]] = None
-    text_encoder_hidden_states: Optional[Tuple[Tensor]] = None
-    vision_encoder_attentions: Optional[Tuple[Tensor]] = None
-    vision_encoder_hidden_states: Optional[Tuple[Tensor]] = None
-    transformer_mapping_network_attentions: Optional[Tuple[Tensor]] = None
-    transformer_mapping_network_hidden_states: Optional[Tuple[Tensor]] = None
-
-
-@dataclass
-class FLMRModelForRetrievalOutput(ModelOutput):
-    """
-    Class for outputs of [`FLMRModelForRetrieval.query()`].
-
-    Args:
-        loss (`torch.FloatTensor`):
-            contrastive loss of the input queries and positive and negative examples. This output is to be used in model training.
-        scores (`torch.FloatTensor` of shape `(batch_size, num_positive_examples + num_negative_examples)`):
-            The FLMR model outputs the *scores* that corresponds to the late-interaction scores of the input query and context. Each query is associated with `num_positive_examples` positive examples and `num_negative_examples` negative examples, and the scores are the late-interaction scores of the query and these examples.
-        in_batch_negative_loss (`torch.FloatTensor` of shape `(batch_size, query_embedding_length, embeddings_size)`):
-            The FLMR model outputs the *in_batch_negative_loss* which computes contrastive loss that includes in-batch negatives. For each positive example, all other examples in the batch except itself are considered negative examples in computing the contrastive loss. This improves ultimate performance in practice. This output is to be used in model training.
-        query_late_interaction_output (`torch.FloatTensor` of shape `(batch_size, query_embedding_length, embeddings_size)`):
-            The FLMR model outputs the *query_late_interaction_output* that corresponds to the late-interaction representations of the input query.
-        context_late_interaction_output (`torch.FloatTensor` of shape `(batch_size, context_embedding_length, embeddings_size)`):
-            The FLMR model outputs the *context_late_interaction_output* that corresponds to the late-interaction representations of the input context.
-        query_attentions (`Tuple[Tuple[Tensor]]`, *optional*):
-            Tuple of elements containing the attention weights of the query's layers. There are three sub-tuples in this tuple, corresponding to the attentions of the text encoder, vision encoder, and transformer mapping network. Each element in the sub-tuple is a tensor of shape `(batch_size, num_heads, sequence_length, sequence_length)`, with `sequence_length` being the sequence length in the corresponding encoder.
-        query_hidden_states (`Tuple[Tuple[Tensor]]`, *optional*):
-            Tuple of elements containing the hidden states of the query's layers. There are three sub-tuples in this tuple, corresponding to the hidden states of the text encoder, vision encoder, and transformer mapping network. Each element in the sub-tuple is a tensor of shape `(batch_size, sequence_length, hidden_size)`, with `sequence_length` being the sequence length in the corresponding encoder.
-        context_attentions (`Tuple[Tuple[Tensor]]`, *optional*):
-            Tuple of elements containing the attention weights of the context's layers. There are three sub-tuples in this tuple, corresponding to the attentions of the text encoder, vision encoder, and transformer mapping network. Each element in the sub-tuple is a tensor of shape `(batch_size, num_heads, sequence_length, sequence_length)`, with `sequence_length` being the sequence length in the corresponding encoder.
-        context_hidden_states (`Tuple[Tuple[Tensor]]`, *optional*):
-            Tuple of elements containing the hidden states of the context's layers. There are three sub-tuples in this tuple, corresponding to the hidden states of the text encoder, vision encoder, and transformer mapping network. Each element in the sub-tuple is a tensor of shape `(batch_size, sequence_length, hidden_size)`, with `sequence_length` being the sequence length in the corresponding encoder.
-    """
-
-    loss: torch.FloatTensor
-    scores: torch.FloatTensor = None
-    in_batch_negative_loss: torch.FloatTensor = None
-    query_late_interaction_output: torch.FloatTensor = None
-    context_late_interaction_output: torch.FloatTensor = None
-    query_attentions: Optional[Tuple[Tuple[Tensor]]] = None
-    query_hidden_states: Optional[Tuple[Tuple[Tensor]]] = None
-    context_attentions: Optional[Tuple[Tuple[Tensor]]] = None
-    context_hidden_states: Optional[Tuple[Tuple[Tensor]]] = None
-
-
 class FLMRPreTrainedModel(PreTrainedModel):
     def _init_weights(self, module):
         """Initialize the weights"""
@@ -845,152 +721,20 @@ class FLMRModelForRetrieval(FLMRPretrainedModelForRetrieval):
         batch_size = query_input_ids.shape[0]
         scores = scores.view(-1, num_negative_examples + 1)
         labels = torch.zeros(batch_size, dtype=torch.long, device=self.device)
-        
+   
+        query_attentions = None
+        context_attentions = None
+        query_hidden_states = None
+        context_hidden_states = None
+        loss = None
+        ib_loss = None
 
-        if use_in_batch_negatives:
-            ib_loss = self.compute_ib_loss_new(Q, D, D_mask)
-            loss = ib_loss
-        else:
-            loss = self.loss_fn(scores, labels)
-            ib_loss = None
-
-        if output_attentions:
-            query_attentions = (
-                query_outputs.text_encoder_attentions if query_outputs.text_encoder_attentions is not None else None,
-                query_outputs.vision_encoder_attentions
-                if query_outputs.vision_encoder_attentions is not None
-                else None,
-                query_outputs.transformer_mapping_network_attentions
-                if query_outputs.transformer_mapping_network_attentions is not None
-                else None,
+        return (scores,
+                query_outputs.late_interaction_output,
+                context_outputs.late_interaction_output,
             )
-            context_attentions = (
-                context_outputs.text_encoder_attentions
-                if context_outputs.text_encoder_attentions is not None
-                else None,
-                context_outputs.vision_encoder_attentions
-                if context_outputs.vision_encoder_attentions is not None
-                else None,
-                context_outputs.transformer_mapping_network_attentions
-                if context_outputs.transformer_mapping_network_attentions is not None
-                else None,
-            )
-        else:
-            query_attentions = None
-            context_attentions = None
 
-        if output_hidden_states:
-            query_hidden_states = (
-                query_outputs.text_encoder_hidden_states
-                if query_outputs.text_encoder_hidden_states is not None
-                else None,
-                query_outputs.vision_encoder_hidden_states
-                if query_outputs.vision_encoder_hidden_states is not None
-                else None,
-                query_outputs.transformer_mapping_network_hidden_states
-                if query_outputs.transformer_mapping_network_hidden_states is not None
-                else None,
-            )
-            context_hidden_states = (
-                context_outputs.text_encoder_hidden_states
-                if context_outputs.text_encoder_hidden_states is not None
-                else None,
-                context_outputs.vision_encoder_hidden_states
-                if context_outputs.vision_encoder_hidden_states is not None
-                else None,
-                context_outputs.transformer_mapping_network_hidden_states
-                if context_outputs.transformer_mapping_network_hidden_states is not None
-                else None,
-            )
-        else:
-            query_hidden_states = None
-            context_hidden_states = None
 
-        if not return_dict:
-            if output_attentions and output_hidden_states:
-                return (
-                    loss,
-                    scores,
-                    ib_loss,
-                    query_outputs.late_interaction_output,
-                    context_outputs.late_interaction_output,
-                    query_attentions,
-                    query_hidden_states,
-                    context_attentions,
-                    context_hidden_states,
-                )
-            elif output_attentions:
-                return (
-                    loss,
-                    scores,
-                    ib_loss,
-                    query_outputs.late_interaction_output,
-                    context_outputs.late_interaction_output,
-                    query_attentions,
-                    context_attentions,
-                )
-            elif output_hidden_states:
-                return (
-                    loss,
-                    scores,
-                    ib_loss,
-                    query_outputs.late_interaction_output,
-                    context_outputs.late_interaction_output,
-                    query_hidden_states,
-                    context_hidden_states,
-                )
-            else:
-                return (
-                    loss,
-                    scores,
-                    ib_loss,
-                    query_outputs.late_interaction_output,
-                    context_outputs.late_interaction_output,
-                )
-
-        return FLMRModelForRetrievalOutput(
-            loss=loss,
-            scores=scores,
-            in_batch_negative_loss=ib_loss,
-            query_late_interaction_output=query_outputs.late_interaction_output,
-            context_late_interaction_output=context_outputs.late_interaction_output,
-            query_attentions=query_attentions if output_attentions else None,
-            query_hidden_states=query_hidden_states if output_hidden_states else None,
-            context_attentions=context_attentions if output_attentions else None,
-            context_hidden_states=context_hidden_states if output_hidden_states else None,
-        )
-
-    def compute_ib_loss_new(self, Q: torch.Tensor, D: torch.Tensor, D_mask: torch.Tensor) -> torch.Tensor:
-        # Q: batch_size x q_len x dim
-        # D: batch_size*n_docs x i_len x dim
-        # D_mask: batch_size*n_docs x i_len x dim
-        # 1 x batch_size*n_docs x i_len x dim matmul batch_size x 1 x q_len x dim
-        # = batch_size x batch_size*n_docs x i_len x q_len
-
-        scores = (D.float().unsqueeze(0) @ Q.float().permute(0, 2, 1).unsqueeze(1)).flatten(
-            0, 1
-        )  # query-major unsqueeze
-        scores = colbert_score_reduce(scores, D_mask.repeat(Q.size(0), 1, 1))
-
-        in_batch_scores = scores.reshape(Q.size(0), -1)
-
-        batch_size = Q.shape[0]
-        batch_size_with_pos_and_neg = D.shape[0]
-        num_pos_and_neg = batch_size_with_pos_and_neg // batch_size
-
-        # batch_size x dim  matmul  dim x (num_pos+num_neg)*batch_size
-        # -->  batch_size x (num_pos+num_neg)*batch_size
-        in_batch_labels = torch.zeros(batch_size, batch_size_with_pos_and_neg).to(scores.device)
-        step = num_pos_and_neg
-        for i in range(batch_size):
-            in_batch_labels[i, step * i] = 1
-        # print('in_batch_labels', in_batch_labels)
-        in_batch_labels = torch.argmax(in_batch_labels, dim=1)
-        # print('in_batch_labels', in_batch_labels)
-
-        loss = self.loss_fn(in_batch_scores, in_batch_labels)
-
-        return loss
 
     def gather_tensors_from_other_gpus(self, query_embeddings, item_embeddings, item_mask):
         # print("get rank", get_rank())
@@ -1051,7 +795,7 @@ class FLMRModelForRetrieval(FLMRPretrainedModelForRetrieval):
         return query_embeddings, item_embeddings, item_mask
 
     @add_start_docstrings_to_model_forward(FLMR_MODEL_QUERY_INPUTS_DOCSTRING)
-    @replace_return_docstrings(output_type=FLMRQueryEncoderOutput, config_class=_CONFIG_FOR_DOC)
+    @replace_return_docstrings(config_class=_CONFIG_FOR_DOC)
     def query(
         self,
         input_ids: torch.Tensor,
@@ -1241,7 +985,7 @@ class FLMRModelForRetrieval(FLMRPretrainedModelForRetrieval):
         )
 
     @add_start_docstrings_to_model_forward(FLMR_MODEL_CONTEXT_INPUTS_DOCSTRING)
-    @replace_return_docstrings(output_type=FLMRContextEncoderOutput, config_class=_CONFIG_FOR_DOC)
+    @replace_return_docstrings(config_class=_CONFIG_FOR_DOC)
     def doc(
         self,
         input_ids: torch.Tensor,
