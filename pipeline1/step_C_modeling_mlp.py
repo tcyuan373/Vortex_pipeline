@@ -49,8 +49,6 @@ from transformers.models.clip import CLIPVisionModel
 
 logger = logging.get_logger(__name__)
 
-
-
 class FLMRMultiLayerPerceptron(nn.Module):
     """
     A simple multi-layer perceptron with an activation function. This can be used as the mapping network in the FLMR model.
@@ -119,19 +117,20 @@ def perform_model():
     output_transfer_elapsed_time_ns = end_output_transfer_time - start_output_transfer_time
     return elapsed_time_ns, input_transfer_elapsed_time_ns, model_transfer_elapsed_time_ns, output_transfer_elapsed_time_ns
 
-def benchmark_model(result_file, transfer_time_file, num_times):
+def benchmark_model(runtime_file, transfer_time_file, num_times):
     elapsed_times = []
-    input_transfer_times = []
-    model_transfer_times = []
-    output_transfer_times = []
+    transfer_times = []
     for run_id in range(num_times):
         elapsed_time_ns, input_transfer_time_ns, model_transfer_time_ns, output_transfer_time_ns = perform_model()
         elapsed_times.append((run_id + 1, elapsed_time_ns))
-        input_transfer_times.append((run_id + 1, input_transfer_time_ns))
-        model_transfer_times.append((run_id + 1, model_transfer_time_ns))
-        output_transfer_times.append((run_id + 1, output_transfer_time_ns))
+        transfer_times.append((
+                    run_id + 1,
+                    input_transfer_time_ns,
+                    model_transfer_time_ns,
+                    output_transfer_time_ns
+        ))
 
-    with open(result_file, mode="w", newline="") as csv_file:
+    with open(runtime_file, mode="w", newline="") as csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(["run_id", "elapsed_time_ns"])
         writer.writerows(elapsed_times)
@@ -139,7 +138,7 @@ def benchmark_model(result_file, transfer_time_file, num_times):
     with open(transfer_time_file, mode="w", newline="") as csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(["run_id", "input_transfer_time_ns", "model_transfer_time_ns", "output_transfer_time_ns"])
-        writer.writerows(elapsed_times)
+        writer.writerows(transfer_times)
 
 if __name__ == "__main__": #(B * vector dim)
     parser = argparse.ArgumentParser(description="Benchmark the latency step C and save results to a CSV file.")
@@ -147,4 +146,4 @@ if __name__ == "__main__": #(B * vector dim)
     parser.add_argument("--transfer_time_file", type=str, required=True, help="The name of the CSV file to save the transfer time results.")
     parser.add_argument("--num_times", type=int, required=True, help="The number of times to run the benchmark.")
     args = parser.parse_args()
-    benchmark_model(args.result_file, args.transfer_time_file, args.num_times)
+    benchmark_model(args.runtime_file, args.transfer_time_file, args.num_times)
