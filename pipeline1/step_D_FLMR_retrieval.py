@@ -1,10 +1,3 @@
-import copy, random
-import os
-import pathlib
-import string
-from dataclasses import dataclass
-from typing import Optional, Tuple, Union
-
 import torch
 import torch.distributed as dist
 from torch import Tensor, nn
@@ -14,6 +7,8 @@ from transformers.models.bert.modeling_bert import BertModel
 from transformers import BertConfig, BertTokenizer
 from transformers.models.bert.modeling_bert import BertEncoder
 from transformers import AutoModel
+
+from flmr import FLMRConfig, FLMRQueryEncoderTokenizer
 ## key idea: replacing the retrival model input with query_text_embed, query_img_embed, context_text_embed, context_img_embed
 ## through away configs thats redundant
 
@@ -24,10 +19,13 @@ from transformers import AutoModel
 class step_D_transformer_mapping:
     def __init__(self):
         # super().__init__(FLMRConfig)
-        self.context_tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+        self.checkpoint_path = 'LinWeizheDragon/PreFLMR_ViT-L'
+        self.flmr_config = FLMRConfig.from_pretrained(self.checkpoint_path)
         self.transformer_mapping_cross_attention_length = 32 # each element, modeling how many tokens upfront
         self.skiplist = []
-        
+        self.tokenizer = FLMRQueryEncoderTokenizer.from_pretrained(self.checkpoint_path,
+                                                                    text_config=self.flmr_config.text_config,
+                                                                    subfolder="query_tokenizer")
         # self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.vision_encoder_embedding_size = 1024
         self.late_interaction_embedding_size = 128
@@ -45,9 +43,16 @@ class step_D_transformer_mapping:
         self.transformer_mapping_output_linear = nn.Linear(
             transformer_mapping_config.hidden_size, self.late_interaction_embedding_size
         )
-        self.mask_instruction = False
-        self.dummy_model = AutoModel.from_pretrained('bert-base-uncased')
         
+        if self.flmr_config.mask_instruction_token is not None:
+            self.mask_instruction = True
+            # obtain the token id of the instruction token
+            self.instruction_token_id = self.tokenizer.encode(
+                self.flmr_config.mask_instruction_token, add_special_tokens=False
+            )[0]
+        else:
+            self.mask_instruction = False
+                    
         
     def mask(self, input_ids, skiplist):
         return [[(x not in skiplist) and (x != 0) for x in d] for d in input_ids.cpu().tolist()]
@@ -56,9 +61,24 @@ class step_D_transformer_mapping:
     def query_mask(self, input_ids, skiplist):
         if not self.mask_instruction:
             return self.mask(input_ids, skiplist)
-        
-        else:
-            raise NotImplementedError("TC: No integration with masking instruction tokens yet!!!")
+
+        # find the position of end of instruction in input_ids
+        # mask the tokens before the position
+        sep_id = self.instruction_token_id
+        sep_positions = torch.argmax((input_ids == sep_id).int(), dim=1).tolist()
+        # if any of the positions is lower than 1, set to 1
+        for i, x in enumerate(sep_positions):
+            if x < 1:
+                sep_positions[i] = 1
+        mask = [
+            [
+                (x not in skiplist) and (x != 0) and (index > sep_positions[seq_index] or index < 2)
+                for index, x in enumerate(d)
+            ]
+            for seq_index, d in enumerate(input_ids.cpu().tolist())
+        ]
+        return mask
+    
     
     def load_model_cuda(self,):
         self.transformer_mapping_network.cuda()
@@ -98,13 +118,14 @@ class step_D_transformer_mapping:
         transformer_mapping_input_features,     # from Step C
     ):
         #preparing mask
-        mask = torch.tensor(self.query_mask(input_ids, skiplist=self.skiplist)).cuda()
+        mask = torch.tensor(self.query_mask(input_ids, skiplist=self.skiplist)).unsqueeze(2).float().cuda()
+        text_embeddings = text_embeddings * mask
         encoder_mask = torch.ones_like(mask).to(mask.device, dtype=mask.dtype)
         if text_encoder_hidden_states.shape[1] > self.transformer_mapping_cross_attention_length:
             text_encoder_hidden_states = text_encoder_hidden_states[:, :self.transformer_mapping_cross_attention_length]
             encoder_mask = encoder_mask[:, :self.transformer_mapping_cross_attention_length]
         # Obtain cross attention mask
-        encoder_extended_attention_mask = self.dummy_model.invert_attention_mask(encoder_mask.squeeze(-1))
+        encoder_extended_attention_mask = self.invert_attention_mask(encoder_mask.squeeze(-1))
         # Pass through the transformer mapping
         
         
