@@ -1,4 +1,4 @@
-run_id,model_transfer_time,data_transfer_time,output_transfer_time
+run_id,model_transfer_time(ns),data_transfer_time(ns),output_transfer_time(ns)
 1,199860375,3588135,8128661
 2,362328,1504702,2091860
 3,339004,1498881,2106797

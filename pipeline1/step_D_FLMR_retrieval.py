@@ -12,7 +12,9 @@ from flmr import FLMRConfig, FLMRQueryEncoderTokenizer
 ## key idea: replacing the retrival model input with query_text_embed, query_img_embed, context_text_embed, context_img_embed
 ## through away configs thats redundant
 
-
+import time
+import csv
+import argparse
 
 # ENCODER hidden states: 
 
@@ -149,9 +151,7 @@ class step_D_transformer_mapping:
         query_embeddings = torch.nn.functional.normalize(Q, p=2, dim=2).detach().cpu()
         return query_embeddings
 
-
-
-if __name__ =="__main__":
+def perform_model():    
     stepD = step_D_transformer_mapping()
     # step_D_transformer_mapping.from_pretrained('')
     bsize = 8
@@ -168,6 +168,68 @@ if __name__ =="__main__":
     dummy_vision_embeddings = torch.randn(bsize, mapping_network_prefix_length, late_interaction_size).cuda()
     dummy_tf_mapping_input_features = torch.randn(bsize, vision_penultimate_shape[1], text_hidden_size).cuda()
     
+    # Measure model transfer time
+    start_model_transfer_time = time.perf_counter_ns()
     stepD.load_model_cuda()
+    end_model_transfer_time = time.perf_counter_ns()
+    model_transfer_time = end_model_transfer_time - start_model_transfer_time
+
+    # Measure memory after loading model
+    before_allocated_memory = torch.cuda.memory_allocated() 
+    before_reserved_memory = torch.cuda.memory_reserved()
+    before_allocated_memory_mb = before_allocated_memory / (1024 ** 2)
+    before_reserved_memory_mb = before_reserved_memory / (1024 ** 2)
+    print(f"After loading model GPU memory allocated: {before_allocated_memory_mb:.2f} MB")
+    print(f"After loading model GPU memory reserved: {before_reserved_memory_mb:.2f} MB")
+
+    # Measure step D latency
+    start_time = time.perf_counter_ns()
     query_embeddings = stepD.cross_attn_embedding(dummy_ids, dummy_text_embeddings, dummy_text_encoder_hidden_states, dummy_vision_embeddings, dummy_tf_mapping_input_features)
-    print(f'query embedding shape is: {query_embeddings.shape}')
+    end_time = time.perf_counter_ns()
+    model_run_time = end_time - start_time
+    # print(f'query embedding shape is: {query_embeddings.shape}')
+    
+    # Measure memory after running the model
+    after_allocated_memory = torch.cuda.memory_allocated() 
+    after_reserved_memory = torch.cuda.memory_reserved()
+    after_allocated_memory_mb = after_allocated_memory / (1024 ** 2)
+    after_reserved_memory_mb = after_reserved_memory / (1024 ** 2)
+    print(f"After running model GPU memory allocated: {after_allocated_memory_mb:.2f} MB")
+    print(f"After running model GPU memory reserved: {after_reserved_memory_mb:.2f} MB")
+
+    # Measure output transfer time
+    start_output_transfer_time = time.perf_counter_ns()
+    query_embeddings.cpu()
+    end_output_transfer_time = time.perf_counter_ns()
+    output_transfer_time = end_output_transfer_time - start_output_transfer_time
+    return model_run_time, model_transfer_time, output_transfer_time
+
+def benchmark_model(runtime_file, transfer_time_file, num_times):
+    model_run_times = []
+    transfer_times = []
+    for run_id in range(num_times):
+        model_run_time, model_transfer_time, output_transfer_time = perform_model()
+        model_run_times.append((run_id + 1, model_run_time))
+        transfer_times.append((
+                    run_id + 1,
+                    model_transfer_time,
+                    output_transfer_time
+        ))
+
+    with open(runtime_file, mode="w", newline="") as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(["run_id", "model_run_time(ns)"])
+        writer.writerows(model_run_times)
+    
+    with open(transfer_time_file, mode="w", newline="") as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(["run_id", "model_transfer_time(ns)", "output_transfer_time(ns)"])
+        writer.writerows(transfer_times)
+
+if __name__ == "__main__": # Bsize, vision_hidden_size[-2], vision_hidden_size[-1]
+    parser = argparse.ArgumentParser(description="Benchmark the latency step C and save results to a CSV file.")
+    parser.add_argument("--runtime_file", type=str, required=True, help="The name of the CSV file to save the model latency results.")
+    parser.add_argument("--transfer_time_file", type=str, required=True, help="The name of the CSV file to save the transfer time results.")
+    parser.add_argument("--num_times", type=int, required=True, help="The number of times to run the benchmark.")
+    args = parser.parse_args()
+    benchmark_model(args.runtime_file, args.transfer_time_file, args.num_times)

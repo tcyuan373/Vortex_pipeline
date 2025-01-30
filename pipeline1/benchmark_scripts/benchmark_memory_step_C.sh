@@ -1,1 +1,1 @@
-python step_C_modeling_mlp.py --result_file results/step_C_memory.csv --num_times 1 > step_C_gpu_memory.txt
+python ../step_C_modeling_mlp.py --runtime_file ../results/step_C_mem.csv --transfer_time_file ../results/step_C_mem.csv --num_times 1 > ../results/step_C_memory.csv

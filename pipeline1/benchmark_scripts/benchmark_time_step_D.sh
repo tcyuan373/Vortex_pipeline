@@ -1,0 +1,1 @@
+python ../step_D_FLMR_retrieval.py --runtime_file ../results/step_D_latency_100_times.csv --transfer_time_file ../results/step_D_transfer_time_100_times.csv --num_times 100

@@ -1,0 +1,4 @@
+After loading model GPU memory allocated: 3.00 MB
+After loading model GPU memory reserved: 22.00 MB
+After running model GPU memory allocated: 40.13 MB
+After running model GPU memory reserved: 54.00 MB

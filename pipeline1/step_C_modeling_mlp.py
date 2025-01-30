@@ -42,6 +42,14 @@ def perform_model():
     model_transfer_time = end_model_transfer_time - start_model_transfer_time
     bsize = 16
 
+    # Measure memory after loading model
+    before_allocated_memory = torch.cuda.memory_allocated() 
+    before_reserved_memory = torch.cuda.memory_reserved()
+    before_allocated_memory_mb = before_allocated_memory / (1024 ** 2)
+    before_reserved_memory_mb = before_reserved_memory / (1024 ** 2)
+    print(f"After loading model GPU memory allocated: {before_allocated_memory_mb:.2f} MB")
+    print(f"After loading model GPU memory reserved: {before_reserved_memory_mb:.2f} MB")
+
     # Measure data transfer time
     dummy_hidden_states = torch.randn(bsize, 256, 1024)
     start_data_transfer_time = time.perf_counter_ns()
@@ -54,6 +62,14 @@ def perform_model():
     output = stepc.stepC_output(dummy_hidden_states)
     end_time = time.perf_counter_ns()
     model_run_time = end_time - start_time
+
+    # Measure memory after running the model
+    after_allocated_memory = torch.cuda.memory_allocated() 
+    after_reserved_memory = torch.cuda.memory_reserved()
+    after_allocated_memory_mb = after_allocated_memory / (1024 ** 2)
+    after_reserved_memory_mb = after_reserved_memory / (1024 ** 2)
+    print(f"After running model GPU memory allocated: {after_allocated_memory_mb:.2f} MB")
+    print(f"After running model GPU memory reserved: {after_reserved_memory_mb:.2f} MB")
 
     # Measure output transfer time
     start_output_transfer_time = time.perf_counter_ns()
@@ -78,12 +94,12 @@ def benchmark_model(runtime_file, transfer_time_file, num_times):
 
     with open(runtime_file, mode="w", newline="") as csv_file:
         writer = csv.writer(csv_file)
-        writer.writerow(["run_id", "model_run_time"])
+        writer.writerow(["run_id", "model_run_time(ns)"])
         writer.writerows(model_run_times)
     
     with open(transfer_time_file, mode="w", newline="") as csv_file:
         writer = csv.writer(csv_file)
-        writer.writerow(["run_id", "model_transfer_time", "data_transfer_time", "output_transfer_time"])
+        writer.writerow(["run_id", "model_transfer_time(ns)", "data_transfer_time(ns)", "output_transfer_time(ns)"])
         writer.writerows(transfer_times)
 
 if __name__ == "__main__": # Bsize, vision_hidden_size[-2], vision_hidden_size[-1]
