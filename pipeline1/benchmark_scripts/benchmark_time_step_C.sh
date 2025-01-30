@@ -1,0 +1,1 @@
+python ../step_C_modeling_mlp.py --runtime_file ../results/step_C_latency_100_times.csv --transfer_time_file ../results/step_C_transfer_time_100_times.csv --num_times 100
