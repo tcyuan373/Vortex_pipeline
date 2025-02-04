@@ -8,13 +8,15 @@ late_interaction_size = 128
 
 
 class StepE:
-    def __init__(self):
-            
-        
+    def __init__(self, 
+                 index_root_path='.',
+                 index_experiment_name='test_experiment',
+                 index_name='test_index',
+                 ):
         self.searcher = create_searcher(
-            index_root_path='.',
-            index_experiment_name='test_experiment',
-            index_name='test_index',
+            index_root_path=index_root_path,
+            index_experiment_name=index_experiment_name,
+            index_name=index_experiment_name,
             nbits=8, # number of bits in compression
             use_gpu=True, # break if set to False, see doc: https://docs.google.com/document/d/1KuWGWZrxURkVxDjFRy1Qnwsy7jDQb-RhlbUzm_A-tOs/edit?tab=t.0
         )
@@ -35,14 +37,11 @@ class StepE:
 
 
 
-
-
 if __name__=='__main__':
     
     dummy_dict = {
         'question_id': [0],
         'question': ["test sentence test sentece, this this, 100"],
-        
     }
     dummy_query_embed = torch.randn(bsize, random.randint(500, 1000), late_interaction_size)
     stepE = StepE()

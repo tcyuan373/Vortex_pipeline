@@ -1,8 +1,8 @@
-import torch
-import torch.distributed as dist
-from torch import Tensor, nn
+import torch, os
+from torch import nn
 from flmr import FLMRConfig
 from transformers import BertConfig
+from flmr import FLMRConfig, FLMRQueryEncoderTokenizer, FLMRContextEncoderTokenizer, FLMRModelForRetrieval
 
 class StepC:
     def __init__(self):
@@ -15,9 +15,36 @@ class StepC:
         transformer_mapping_config.is_decoder = True
         transformer_mapping_config.add_cross_attention = True
         
-        self.transformer_mapping_input_linear = nn.Linear(
-            self.flmr_config.vision_config.hidden_size, transformer_mapping_config.hidden_size
-        )
+        self.local_model_path = "models_step_C_transformer_mapping_input_linear.pt"
+        
+        if not os.path.exists(self.local_model_path):
+            print(f'local directory not found, initing from full model...')
+            self.query_tokenizer = FLMRQueryEncoderTokenizer.from_pretrained(
+                self.checkpoint_path, 
+                text_config=self.flmr_config.text_config, 
+                subfolder="query_tokenizer")
+            self.context_tokenizer = FLMRContextEncoderTokenizer.from_pretrained(
+                self.checkpoint_path, 
+                text_config=self.flmr_config.text_config, 
+                subfolder="context_tokenizer"
+            )
+            full_model = FLMRModelForRetrieval.from_pretrained(
+                self.checkpoint_path,
+                query_tokenizer=self.query_tokenizer,
+                context_tokenizer=self.context_tokenizer,
+            )
+            self.transformer_mapping_input_linear = full_model.transformer_mapping_input_linear
+            torch.save(self.transformer_mapping_input_linear.state_dict(), self.local_model_path)
+            
+            del full_model
+            
+        else:       
+            print(f'found local model for step C, now loading...')
+            self.transformer_mapping_input_linear = nn.Linear(
+                self.flmr_config.vision_config.hidden_size, transformer_mapping_config.hidden_size
+            )
+            
+            self.transformer_mapping_input_linear.load_state_dict(torch.load(self.local_model_path, weights_only=True))
         
     def load_model_cuda(self):
         self.transformer_mapping_input_linear.cuda()

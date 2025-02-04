@@ -1,14 +1,8 @@
-import torch
-import torch.distributed as dist
+import torch, os
 from torch import Tensor, nn
-from torch.utils.cpp_extension import load
-
-from transformers.models.bert.modeling_bert import BertModel
-from transformers import BertConfig, BertTokenizer
+from transformers import BertConfig
 from transformers.models.bert.modeling_bert import BertEncoder
-from transformers import AutoModel
-
-from flmr import FLMRConfig, FLMRQueryEncoderTokenizer
+from flmr import FLMRConfig, FLMRQueryEncoderTokenizer, FLMRContextEncoderTokenizer, FLMRModelForRetrieval
 ## key idea: replacing the retrival model input with query_text_embed, query_img_embed, context_text_embed, context_img_embed
 ## through away configs thats redundant
 
@@ -23,31 +17,54 @@ class step_D_transformer_mapping:
         self.flmr_config = FLMRConfig.from_pretrained(self.checkpoint_path)
         self.transformer_mapping_cross_attention_length = 32 # each element, modeling how many tokens upfront
         self.skiplist = []
-        self.tokenizer = FLMRQueryEncoderTokenizer.from_pretrained(self.checkpoint_path,
-                                                                    text_config=self.flmr_config.text_config,
-                                                                    subfolder="query_tokenizer")
-        # self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.vision_encoder_embedding_size = 1024
-        self.late_interaction_embedding_size = 128
-        self.transformer_mapping_config_base = 'bert-base-uncased'
-        transformer_mapping_config = BertConfig.from_pretrained(self.transformer_mapping_config_base)
-        transformer_mapping_config.is_decoder = True
-        transformer_mapping_config.add_cross_attention = True
-        transformer_mapping_config.num_hidden_layers = 1
+        self.local_tf_mapping_path = 'models_step_D_transformer_mapping.pt'
+        self.local_tf_mapping_output_path = 'models_step_D_transformer_mapping_output.pt'
+        self.query_tokenizer = FLMRQueryEncoderTokenizer.from_pretrained(
+                    self.checkpoint_path, 
+                    text_config=self.flmr_config.text_config, 
+                    subfolder="query_tokenizer")
         
         
-        self.transformer_mapping_input_linear = nn.Linear(
-            self.vision_encoder_embedding_size, transformer_mapping_config.hidden_size
-        )
-        self.transformer_mapping_network = BertEncoder(transformer_mapping_config)
-        self.transformer_mapping_output_linear = nn.Linear(
-            transformer_mapping_config.hidden_size, self.late_interaction_embedding_size
-        )
+        if not os.path.exists(self.local_tf_mapping_path) and not os.path.exists(self.local_tf_mapping_output_path):
+            print(f'local directory not found, initing from full model...')
+            self.context_tokenizer = FLMRContextEncoderTokenizer.from_pretrained(
+                self.checkpoint_path, 
+                text_config=self.flmr_config.text_config, 
+                subfolder="context_tokenizer"
+            )
+            full_model = FLMRModelForRetrieval.from_pretrained(
+                    self.checkpoint_path,
+                    query_tokenizer=self.query_tokenizer,
+                    context_tokenizer=self.context_tokenizer,
+                )
+            self.transformer_mapping_network = full_model.transformer_mapping_network
+            self.transformer_mapping_output_linear = full_model.transformer_mapping_output_linear
+            torch.save(self.transformer_mapping_network.state_dict(), self.local_tf_mapping_path)
+            torch.save(self.transformer_mapping_output_linear.state_dict(), self.local_tf_mapping_output_path)
+        else:
+            print(f'found local model for step D, now loading...')            
+            self.vision_encoder_embedding_size = 1024
+            self.late_interaction_embedding_size = 128
+            self.transformer_mapping_config_base = 'bert-base-uncased'
+            transformer_mapping_config = BertConfig.from_pretrained(self.transformer_mapping_config_base)
+            transformer_mapping_config.is_decoder = True
+            transformer_mapping_config.add_cross_attention = True
+            transformer_mapping_config.num_hidden_layers = 1
+            self.transformer_mapping_input_linear = nn.Linear(
+                self.vision_encoder_embedding_size, transformer_mapping_config.hidden_size
+            )
+            self.transformer_mapping_network = BertEncoder(transformer_mapping_config)
+            self.transformer_mapping_network.load_state_dict(torch.load(self.local_tf_mapping_path, weights_only=True))
+            self.transformer_mapping_output_linear = nn.Linear(
+                transformer_mapping_config.hidden_size, self.late_interaction_embedding_size
+            )
+            self.transformer_mapping_output_linear.load_state_dict(torch.load(self.local_tf_mapping_output_path, weights_only=True))
+            
         
         if self.flmr_config.mask_instruction_token is not None:
             self.mask_instruction = True
             # obtain the token id of the instruction token
-            self.instruction_token_id = self.tokenizer.encode(
+            self.instruction_token_id = self.query_tokenizer.encode(
                 self.flmr_config.mask_instruction_token, add_special_tokens=False
             )[0]
         else:

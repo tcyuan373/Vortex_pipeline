@@ -1,18 +1,8 @@
-import copy
 import os
-import pathlib
-import string
-from dataclasses import dataclass
-from typing import Optional, Tuple, Union
-
 import torch
-import torch.distributed as dist
-from torch import Tensor, nn
-from torch.utils.cpp_extension import load
-
-from flmr import FLMRConfig, FLMRVisionModel
+from torch import nn
+from flmr import FLMRConfig, FLMRQueryEncoderTokenizer, FLMRContextEncoderTokenizer, FLMRModelForRetrieval, FLMRVisionModel
 from transformers import AutoImageProcessor
-from torchinfo import summary
 from PIL import Image
 
 
@@ -39,18 +29,50 @@ class StepB:
     def __init__(self):
         self.checkpoint_path = 'LinWeizheDragon/PreFLMR_ViT-L'
         self.flmr_config = FLMRConfig.from_pretrained(self.checkpoint_path)
+        self.local_encoder_path = 'models_step_B_vision_encoder.pt'
+        self.local_projection_path = 'models_step_B_vision_projection.pt'
         self.image_processor = AutoImageProcessor.from_pretrained('openai/clip-vit-large-patch14')
-        if self.flmr_config.use_vision_encoder:
-            self.query_vision_encoder = FLMRVisionModel(self.flmr_config.vision_config)
-            
-        self.query_vision_projection = FLMRMultiLayerPerceptron(
-                (
-                    self.flmr_config.vision_config.hidden_size,
-                    (self.flmr_config.dim * self.flmr_config.mapping_network_prefix_length) // 2,
-                    self.flmr_config.dim * self.flmr_config.mapping_network_prefix_length,
-                )
+        
+        if not os.path.exists(self.local_encoder_path) and not os.path.exists(self.local_projection_path):
+            print('local model not found, initing from full model...')
+            self.query_tokenizer = FLMRQueryEncoderTokenizer.from_pretrained(
+                self.checkpoint_path, 
+                text_config=self.flmr_config.text_config, 
+                subfolder="query_tokenizer")
+            self.context_tokenizer = FLMRContextEncoderTokenizer.from_pretrained(
+                self.checkpoint_path, 
+                text_config=self.flmr_config.text_config, 
+                subfolder="context_tokenizer"
             )
+            full_model = FLMRModelForRetrieval.from_pretrained(
+                self.checkpoint_path,
+                query_tokenizer=self.query_tokenizer,
+                context_tokenizer=self.context_tokenizer,
+            )
+            
+            if self.flmr_config.use_vision_encoder:
+                self.query_vision_encoder = full_model.query_vision_encoder
+                
+            self.query_vision_projection = full_model.query_vision_projection
+            torch.save(self.query_vision_encoder.state_dict(), self.local_encoder_path)
+            torch.save(self.query_vision_projection.state_dict(), self.local_projection_path)
+            del full_model
+            
+        else:
+            print(f'found local model for step B, now loading...')
+            self.query_vision_encoder = FLMRVisionModel(self.flmr_config.vision_config)
+            self.query_vision_projection = FLMRMultiLayerPerceptron(
+                    (
+                        self.flmr_config.vision_config.hidden_size,
+                        (self.flmr_config.dim * self.flmr_config.mapping_network_prefix_length) // 2,
+                        self.flmr_config.dim * self.flmr_config.mapping_network_prefix_length,
+                    )
+                )
+            self.query_vision_encoder.load_state_dict(torch.load(self.local_encoder_path, weights_only=False))
+            self.query_vision_projection.load_state_dict(torch.load(self.local_projection_path, weights_only=False))
+            
         self.device = 'cuda'
+        
         
     def load_model_cuda(self):
         self.query_vision_projection.cuda()
