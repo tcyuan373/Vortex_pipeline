@@ -21,29 +21,19 @@ image root to search for query images, must be the same number of elements as **
 ## Original PreFLMR implementation in one file
 This is the original usage script for PreFLMR model.  If using **test** split,
 ```
-python example_use_preflmr.py \
-        --use_gpu \
-        --index_root_path "./" \
-        --index_name EVQA_PreFLMR_ViT-L \
-        --experiment_name EVQA_test_split \
-        --indexing_batch_size 64 \
-        --image_root_dir ./EVQA/eval_image/ \
-        --local_data_hf ./BByrneLab/EVQA_PreFLMR_preprocessed_data \
-        --local_passages_hf ./BByrneLab/multi_task_multi_modal_knowledge_retrieval_benchmark_M2KR \
-        --dataset EVQA \
-        --use_split test \
-        --nbits 8 \
-        --Ks 1 5 10 20 50 100 500 \
-        --checkpoint_path LinWeizheDragon/PreFLMR_ViT-L \
-        --image_processor_name openai/clip-vit-large-patch14 \
-        --query_batch_size 8 
+python example_use_preflmr.py 
 ```
+All arguments are hardcoded inside our **main()** function.
+
 
 ## Dataset Preparaions
-Make sure you login before wget any dataset from huggingface.
+We can directly wget from our Azure storage.
 ```
-huggingface-cli login
+wget https://vortexstorage7348269.blob.core.windows.net/flmrdata/EVQA_data.zip
+
+wget https://vortexstorage7348269.blob.core.windows.net/flmrdata/EVQA_passages.zip
 ```
+Be sure to unzip the files afterwards, then specify the **ds_dir**, **passage_dir** in our **main()**.
 
 
 Datasets download link is provided here

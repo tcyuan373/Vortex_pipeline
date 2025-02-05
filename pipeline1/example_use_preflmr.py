@@ -247,8 +247,8 @@ def main():
 
     use_split = 'test'
 
-    ds = ds[use_split].select([i for i in range(64)])
-    passage_ds = passage_ds[f"{use_split}_passages"].select([i for i in range(64)])
+    ds = ds[use_split].select([i for i in range(8)])
+    passage_ds = passage_ds[f"{use_split}_passages"]
     print("========= Data Summary =========")
     print("Number of examples:", len(ds))
     print("Number of passages:", len(passage_ds))
