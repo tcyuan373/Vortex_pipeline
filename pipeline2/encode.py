@@ -9,11 +9,11 @@ import warnings
 warnings.filterwarnings("ignore")
 
 from FlagEmbedding import BGEM3FlagModel
-import faiss    
 
 
 
-class EncodeCentroidsSearchUDL():
+
+class EncoderUDL():
      def __init__(self):
           '''
           Constructor
@@ -36,7 +36,7 @@ class EncodeCentroidsSearchUDL():
 
 
 if __name__ == "__main__":
-     udl = EncodeCentroidsSearchUDL()
+     udl = EncoderUDL()
      query_list = ["What is the capital of France?", "What is the capital of USA?"]
      query_embeddings = udl.encode(query_list)
      print(query_embeddings.shape)
