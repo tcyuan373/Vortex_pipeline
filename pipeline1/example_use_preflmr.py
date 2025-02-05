@@ -56,34 +56,53 @@ class NumpyEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-def index_corpus(args, custom_collection):
+def index_corpus(checkpoint_path, 
+                 index_root_path, 
+                 experiment_name,
+                 index_name,
+                 nbits,
+                 use_gpu,
+                 indexing_batch_size,
+                 num_gpus,
+                 custom_collection):
     # Launch indexer
     index_path = index_custom_collection(
         custom_collection=custom_collection,
-        model=args.checkpoint_path,
-        index_root_path=args.index_root_path,
-        index_experiment_name=args.experiment_name,
-        index_name=args.index_name,
-        nbits=args.nbits, # number of bits in compression
+        model=checkpoint_path,
+        index_root_path=index_root_path,
+        index_experiment_name=experiment_name,
+        index_name=index_name,
+        nbits=nbits, # number of bits in compression
         doc_maxlen=512, # maximum allowed document length
         overwrite=False, # whether to overwrite existing indices
-        use_gpu=args.use_gpu, # whether to enable GPU indexing
-        indexing_batch_size=args.indexing_batch_size,
+        use_gpu=use_gpu, # whether to enable GPU indexing
+        indexing_batch_size=indexing_batch_size,
         model_temp_folder="tmp",
-        nranks=args.num_gpus, # number of GPUs used in indexing
+        nranks=num_gpus, # number of GPUs used in indexing
     )
     return index_path
 
 
-def query_index(args, ds, passage_contents, passage_ids, flmr_model: FLMRModelForRetrieval):
+def query_index(index_root_path, 
+                experiment_name, 
+                index_name, 
+                use_gpu, 
+                nbits, 
+                ds, 
+                passage_contents, 
+                passage_ids, 
+                centroid_search_batch_size, 
+                query_batch_size, 
+                Ks, 
+                flmr_model: FLMRModelForRetrieval):
     # Search documents
     # initiate a searcher
     searcher = create_searcher(
-        index_root_path=args.index_root_path,
-        index_experiment_name=args.experiment_name,
-        index_name=args.index_name,
-        nbits=args.nbits, # number of bits in compression
-        use_gpu=args.use_gpu, # whether to enable GPU searching
+        index_root_path=index_root_path,
+        index_experiment_name=experiment_name,
+        index_name=index_name,
+        nbits=nbits, # number of bits in compression
+        use_gpu=use_gpu, # whether to enable GPU searching
     )
 
     def encode_and_search_batch(batch, Ks):
@@ -110,7 +129,7 @@ def query_index(args, ds, passage_contents, passage_ids, flmr_model: FLMRModelFo
             query_embeddings=query_embeddings,
             num_document_to_retrieve=max(Ks), # how many documents to retrieve for each query
             remove_zero_tensors=True,  # For PreFLMR, this is needed
-            centroid_search_batch_size=args.centroid_search_batch_size,
+            centroid_search_batch_size=centroid_search_batch_size,
         )
 
         ranking_dict = ranking.todict()
@@ -134,7 +153,7 @@ def query_index(args, ds, passage_contents, passage_ids, flmr_model: FLMRModelFo
             ]
             result_dict["retrieved_passage"].append(retrieved_doc_list)
             
-            if args.compute_pseudo_recall:
+            if True:
                 # Psuedo Recall@K
                 hit_list = []
                 # Get answers
@@ -176,13 +195,13 @@ def query_index(args, ds, passage_contents, passage_ids, flmr_model: FLMRModelFo
 
     flmr_model = flmr_model.to("cuda")
     print("Starting encoding...")
-    Ks = args.Ks
+    Ks = Ks
     # ds = ds.select(range(2000, 2100))
     ds = ds.map(
         encode_and_search_batch,
         fn_kwargs={"Ks": Ks},
         batched=True,
-        batch_size=args.query_batch_size,
+        batch_size=query_batch_size,
         load_from_cache_file=False,
         new_fingerprint="avoid_cache",
     )
@@ -190,21 +209,30 @@ def query_index(args, ds, passage_contents, passage_ids, flmr_model: FLMRModelFo
     return ds
 
 
-def main(args):
+def main():
     from datasets import load_dataset, load_from_disk
     from datasets import DatasetDict
-    # if args.local_data_hf == "":
-    #     ds = load_dataset(args.dataset_hf_path, args.dataset + "_data")
-    # else:
-    #     ds = DatasetDict.load_from_disk(args.local_data_hf)
-    # if args.local_passages_hf == "":
-    #     passage_ds = load_dataset(args.dataset_hf_path, args.dataset + "_passages")
-    # else:
-    #     passage_ds = DatasetDict.load_from_disk(args.local_passages_hf)
-    ds = load_dataset('arrow', data_files ={'train':'/home/jovyan/workspace/BByrneLab___evqa_pre_flmr_preprocessed_data/evqa_pre_flmr_preprocessed_data-train.arrow',
-                                            'test':'/home/jovyan/workspace/BByrneLab___evqa_pre_flmr_preprocessed_data/evqa_pre_flmr_preprocessed_data-test.arrow'})
-    passage_ds = load_dataset('arrow', data_files = {'train_passages':'/home/jovyan/workspace/BByrneLab___evqa_pre_flmr_preprocessed_passages/evqa_pre_flmr_preprocessed_passages-train_passages.arrow',
-                                                     'test_passages': '/home/jovyan/workspace/BByrneLab___evqa_pre_flmr_preprocessed_passages/evqa_pre_flmr_preprocessed_passages-test_passages.arrow'})
+    
+    # all args now in here
+    ds_dir              = "/home/ty373/workspace/EVQA_data"  
+    passage_dir         = "/home/ty373/workspace/EVQA_passages"
+    image_root_dir      = '/share/desa/nfs02/ty373/HF_CACHE/datasets/'
+    index_root_path     = '.'
+    index_name          = 'EVQA_PreFLMR_ViT-L'
+    
+    checkpoint_path     = 'LinWeizheDragon/PreFLMR_ViT-L'
+    experiment_name     = 'EVQA_test_split'
+    indexing_batch_size = 64
+    image_processor_name= 'openai/clip-vit-large-patch14'
+    Ks                  = [1, 3, 5]
+    use_gpu             = True
+    nbits               = 8
+    query_batch_size    = 8
+    
+    ds = load_dataset('parquet', data_files ={  'train' :ds_dir + '/train-00000-of-00001.parquet',
+                                                'test'  : ds_dir + '/test-00000-of-00001-2.parquet'})
+    passage_ds = load_dataset('parquet', data_files = { 'train_passages':passage_dir + '/train_passages-00000-of-00001.parquet',
+                                                        'test_passages' : passage_dir + '/test_passages-00000-of-00001.parquet'})
     
     print("========= Loading dataset =========")
     print(ds)
@@ -215,11 +243,11 @@ def main(args):
             example["img_path"] = os.path.join(prefix, example["img_path"])
         return example
 
-    ds = ds.map(add_path_prefix_in_img_path, fn_kwargs={"prefix": args.image_root_dir})
+    ds = ds.map(add_path_prefix_in_img_path, fn_kwargs={"prefix": image_root_dir})
 
-    use_split = args.use_split
+    use_split = 'test'
 
-    ds = ds[use_split]
+    ds = ds[use_split].select([i for i in range(8)])
     passage_ds = passage_ds[f"{use_split}_passages"]
     print("========= Data Summary =========")
     print("Number of examples:", len(ds))
@@ -229,29 +257,30 @@ def main(args):
     # Run indexing on passages
     passage_contents = passage_ds["passage_content"]
     passage_ids = passage_ds["passage_id"]
+
     # passage_contents =['<BOK> ' + passage + ' <EOK>' for passage in passage_contents]
 
-    if args.run_indexing:
-        ## Call ColBERT indexing to index passages
-        index_corpus(args, passage_contents)
-    else:
-        print("args.run_indexing is False, skipping indexing...")
-    pass
+    # if args.run_indexing:
+    #     ## Call ColBERT indexing to index passages
+    #     index_corpus(args, passage_contents)
+    # else:
+    #     print("args.run_indexing is False, skipping indexing...")
+
     print("========= Loading pretrained model =========")
-    flmr_config = FLMRConfig.from_pretrained(args.checkpoint_path)
-    query_tokenizer = FLMRQueryEncoderTokenizer.from_pretrained(args.checkpoint_path,
+    flmr_config = FLMRConfig.from_pretrained(checkpoint_path)
+    query_tokenizer = FLMRQueryEncoderTokenizer.from_pretrained(checkpoint_path,
                                                                     text_config=flmr_config.text_config,
                                                                     subfolder="query_tokenizer")
-    context_tokenizer = FLMRContextEncoderTokenizer.from_pretrained(args.checkpoint_path,
+    context_tokenizer = FLMRContextEncoderTokenizer.from_pretrained(checkpoint_path,
                                                                     text_config=flmr_config.text_config,
                                                                     subfolder="context_tokenizer")
 
     flmr_model = FLMRModelForRetrieval.from_pretrained(
-        args.checkpoint_path,
+        checkpoint_path,
         query_tokenizer=query_tokenizer,
         context_tokenizer=context_tokenizer,
     )
-    image_processor = AutoImageProcessor.from_pretrained(args.image_processor_name)
+    image_processor = AutoImageProcessor.from_pretrained(image_processor_name)
 
     print("========= Preparing query input =========")
     
@@ -277,6 +306,7 @@ def main(args):
         sample["text_sequence"] = text_sequence
 
         return sample
+    
 
     # Prepare inputs using the same configuration as in the original FLMR paper
     ds = ds.map(prepare_inputs)
@@ -311,24 +341,35 @@ def main(args):
     )
 
     print("========= Querying =========")
-    ds = query_index(args, ds, passage_contents, passage_ids, flmr_model)
+    ds = query_index(index_root_path=index_root_path, 
+                    experiment_name=experiment_name, 
+                    index_name=index_name, 
+                    use_gpu=use_gpu, 
+                    nbits=nbits, 
+                    ds=ds, 
+                    passage_contents=passage_contents, 
+                    passage_ids=passage_ids, 
+                    centroid_search_batch_size=None, 
+                    query_batch_size=query_batch_size, 
+                    Ks=Ks, 
+                    flmr_model=flmr_model)
     # Compute final recall
     print("=============================")
     print("Inference summary:")
     print("=============================")
-    print(args.dataset, args.checkpoint_path)
+    # print(args.dataset, checkpoint_path)
     print(f"Total number of questions: {len(ds)}")
 
-    if args.compute_pseudo_recall:
-        for K in args.Ks:
+    if True:
+        for K in Ks:
             recall = np.mean(np.array(ds[f"Pseudo Recall@{K}"]))
             print(f"Pseudo Recall@{K}:\t", recall)
-    for K in args.Ks:
+    for K in Ks:
         recall = np.mean(np.array(ds[f"Recall@{K}"]))
         print(f"Recall@{K}:\t", recall)
     print("=============================")
-    report_path = os.path.join(args.save_report_path, f"{args.dataset}_{args.index_name}.json")
-    print(f"Saving reports to {report_path}...")
+    report_path = os.path.join('.', f"nbits_{nbits}_{index_name}.json")
+    # print(f"Saving reports to {report_path}...")
     
     all_columns = ds.column_names
     all_columns = [column for column in all_columns if ('Recall@' in column or column in ["question_id", "retrieved_passage"]) ]
@@ -343,52 +384,5 @@ def main(args):
 
 if __name__ == "__main__":
     # Initialize arg parser
-    import argparse
+    main()
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--use_gpu", action="store_true")
-    # all hardcode parameters should be here
-    parser.add_argument("--query_batch_size", type=int, default=8)
-    parser.add_argument("--num_ROIs", type=int, default=9)
-    parser.add_argument("--num_gpus", type=int, default=1)
-    parser.add_argument("--dataset_hf_path", type=str, default="")
-    parser.add_argument(
-        "--dataset", type=str, default="EVQA"
-    )
-    parser.add_argument("--image_root_dir", type=str, default="./ok-vqa/")
-    parser.add_argument("--use_split", type=str, default="test")
-    parser.add_argument("--index_root_path", type=str, default=".")
-    parser.add_argument("--index_name", type=str, default="OKVQA_GS")
-    parser.add_argument("--experiment_name", type=str, default="OKVQA_GS")
-    parser.add_argument("--indexing_batch_size", type=int, default=64)
-    parser.add_argument("--image_processor_name", type=str, default="openai/clip-vit-base-patch32")
-    parser.add_argument("--nbits", type=int, default=8)
-    parser.add_argument("--Ks", type=int, nargs="+", default=[5, 10, 20, 50, 100])
-    parser.add_argument("--checkpoint_path", type=str, default="LinWeizheDragon/PreFLMR_ViT-L")
-    parser.add_argument("--run_indexing", action="store_true")
-    parser.add_argument("--centroid_search_batch_size", type=int, default=None)
-    parser.add_argument("--save_report_path", type=str, default=".")
-    parser.add_argument("--compute_pseudo_recall", action="store_true")
-    parser.add_argument("--local_data_hf", type=str, default="")
-    parser.add_argument("--local_passages_hf", type=str, default="")
-    args = parser.parse_args()
-    """
-    Example usage:
-    python example_use_preflmr.py \
-            --use_gpu --run_indexing \
-            --index_root_path "." \
-            --index_name EVQA_PreFLMR_ViT-L \
-            --experiment_name EVQA \
-            --indexing_batch_size 64 \
-            --image_root_dir /path/to/EVQA/eval_image/ \
-            --dataset_hf_path BByrneLab/multi_task_multi_modal_knowledge_retrieval_benchmark_M2KR \
-            --dataset EVQA \
-            --use_split test \
-            --nbits 8 \
-            --Ks 1 5 10 20 50 100 500 \
-            --checkpoint_path LinWeizheDragon/PreFLMR_ViT-L \
-            --image_processor_name openai/clip-vit-large-patch14 \
-            --query_batch_size 8 \
-            --compute_pseudo_recall \
-    """
-    main(args)
