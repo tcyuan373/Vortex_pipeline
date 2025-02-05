@@ -33,8 +33,8 @@ class StepA:
             )
             self.query_text_encoder = full_model.query_text_encoder
             self.query_text_encoder_linear = full_model.query_text_encoder_linear
-            torch.save(self.query_text_encoder.state_dict(), self.local_encoder_path)
-            torch.save(self.query_text_encoder_linear.state_dict(), self.local_projection_path)
+            # torch.save(self.query_text_encoder.state_dict(), self.local_encoder_path)
+            # torch.save(self.query_text_encoder_linear.state_dict(), self.local_projection_path)
             del full_model
         else:
             print(f'found local model for step A, now loading...')

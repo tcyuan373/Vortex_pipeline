@@ -54,8 +54,8 @@ class StepB:
                 self.query_vision_encoder = full_model.query_vision_encoder
                 
             self.query_vision_projection = full_model.query_vision_projection
-            torch.save(self.query_vision_encoder.state_dict(), self.local_encoder_path)
-            torch.save(self.query_vision_projection.state_dict(), self.local_projection_path)
+            # torch.save(self.query_vision_encoder.state_dict(), self.local_encoder_path)
+            # torch.save(self.query_vision_projection.state_dict(), self.local_projection_path)
             del full_model
             
         else:

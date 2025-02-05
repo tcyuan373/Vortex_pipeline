@@ -34,7 +34,7 @@ class StepC:
                 context_tokenizer=self.context_tokenizer,
             )
             self.transformer_mapping_input_linear = full_model.transformer_mapping_input_linear
-            torch.save(self.transformer_mapping_input_linear.state_dict(), self.local_model_path)
+            # torch.save(self.transformer_mapping_input_linear.state_dict(), self.local_model_path)
             
             del full_model
             

@@ -39,8 +39,8 @@ class step_D_transformer_mapping:
                 )
             self.transformer_mapping_network = full_model.transformer_mapping_network
             self.transformer_mapping_output_linear = full_model.transformer_mapping_output_linear
-            torch.save(self.transformer_mapping_network.state_dict(), self.local_tf_mapping_path)
-            torch.save(self.transformer_mapping_output_linear.state_dict(), self.local_tf_mapping_output_path)
+            # torch.save(self.transformer_mapping_network.state_dict(), self.local_tf_mapping_path)
+            # torch.save(self.transformer_mapping_output_linear.state_dict(), self.local_tf_mapping_output_path)
         else:
             print(f'found local model for step D, now loading...')            
             self.vision_encoder_embedding_size = 1024
