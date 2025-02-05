@@ -80,9 +80,8 @@ class DocGenerateUDL():
           doc_list = self.get_documents(doc_ids)
           
           llm_res = self.llm_generate(query_text, doc_list)
-          result_json = json.dumps(llm_res)
 
-          return result_json
+          return llm_res
 
           
 
@@ -95,5 +94,5 @@ if __name__ == "__main__":
      query_text = "What is the capital of France?"
      doc_ids = [0, 1, 2, 3, 4]
      result = udl.generate(query_text, doc_ids)
-     print(result)
+     print(f"finished generating response: {result}")
      del udl
