@@ -193,14 +193,18 @@ def query_index(args, ds, passage_contents, passage_ids, flmr_model: FLMRModelFo
 def main(args):
     from datasets import load_dataset, load_from_disk
     from datasets import DatasetDict
-    if args.local_data_hf == "":
-        ds = load_dataset(args.dataset_hf_path, args.dataset + "_data")
-    else:
-        ds = DatasetDict.load_from_disk(args.local_data_hf)
-    if args.local_passages_hf == "":
-        passage_ds = load_dataset(args.dataset_hf_path, args.dataset + "_passages")
-    else:
-        passage_ds = DatasetDict.load_from_disk(args.local_passages_hf)
+    # if args.local_data_hf == "":
+    #     ds = load_dataset(args.dataset_hf_path, args.dataset + "_data")
+    # else:
+    #     ds = DatasetDict.load_from_disk(args.local_data_hf)
+    # if args.local_passages_hf == "":
+    #     passage_ds = load_dataset(args.dataset_hf_path, args.dataset + "_passages")
+    # else:
+    #     passage_ds = DatasetDict.load_from_disk(args.local_passages_hf)
+    ds = load_dataset('arrow', data_files ={'train':'/home/jovyan/workspace/BByrneLab___evqa_pre_flmr_preprocessed_data/evqa_pre_flmr_preprocessed_data-train.arrow',
+                                            'test':'/home/jovyan/workspace/BByrneLab___evqa_pre_flmr_preprocessed_data/evqa_pre_flmr_preprocessed_data-test.arrow'})
+    passage_ds = load_dataset('arrow', data_files = {'train_passages':'/home/jovyan/workspace/BByrneLab___evqa_pre_flmr_preprocessed_passages/evqa_pre_flmr_preprocessed_passages-train_passages.arrow',
+                                                     'test_passages': '/home/jovyan/workspace/BByrneLab___evqa_pre_flmr_preprocessed_passages/evqa_pre_flmr_preprocessed_passages-test_passages.arrow'})
     
     print("========= Loading dataset =========")
     print(ds)
@@ -232,7 +236,7 @@ def main(args):
         index_corpus(args, passage_contents)
     else:
         print("args.run_indexing is False, skipping indexing...")
-
+    pass
     print("========= Loading pretrained model =========")
     flmr_config = FLMRConfig.from_pretrained(args.checkpoint_path)
     query_tokenizer = FLMRQueryEncoderTokenizer.from_pretrained(args.checkpoint_path,
@@ -360,7 +364,7 @@ if __name__ == "__main__":
     parser.add_argument("--image_processor_name", type=str, default="openai/clip-vit-base-patch32")
     parser.add_argument("--nbits", type=int, default=8)
     parser.add_argument("--Ks", type=int, nargs="+", default=[5, 10, 20, 50, 100])
-    parser.add_argument("--checkpoint_path", type=str, default="./converted_flmr")
+    parser.add_argument("--checkpoint_path", type=str, default="LinWeizheDragon/PreFLMR_ViT-L")
     parser.add_argument("--run_indexing", action="store_true")
     parser.add_argument("--centroid_search_batch_size", type=int, default=None)
     parser.add_argument("--save_report_path", type=str, default=".")
