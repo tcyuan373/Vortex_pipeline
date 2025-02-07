@@ -1,3 +1,7 @@
+import csv
+import numpy
+import time
+
 import torch, os
 from torch import Tensor, nn
 from transformers import BertConfig
@@ -5,7 +9,6 @@ from transformers.models.bert.modeling_bert import BertEncoder
 from flmr import FLMRConfig, FLMRQueryEncoderTokenizer, FLMRContextEncoderTokenizer, FLMRModelForRetrieval
 ## key idea: replacing the retrival model input with query_text_embed, query_img_embed, context_text_embed, context_img_embed
 ## through away configs thats redundant
-
 
 
 # ENCODER hidden states: 
@@ -23,8 +26,8 @@ class step_D_transformer_mapping:
                     self.checkpoint_path, 
                     text_config=self.flmr_config.text_config, 
                     subfolder="query_tokenizer")
-        
-        
+
+
         if not os.path.exists(self.local_tf_mapping_path) and not os.path.exists(self.local_tf_mapping_output_path):
             print(f'local directory not found, initing from full model...')
             self.context_tokenizer = FLMRContextEncoderTokenizer.from_pretrained(
@@ -59,8 +62,8 @@ class step_D_transformer_mapping:
                 transformer_mapping_config.hidden_size, self.late_interaction_embedding_size
             )
             self.transformer_mapping_output_linear.load_state_dict(torch.load(self.local_tf_mapping_output_path, weights_only=True))
-            
-        
+
+
         if self.flmr_config.mask_instruction_token is not None:
             self.mask_instruction = True
             # obtain the token id of the instruction token
@@ -69,12 +72,12 @@ class step_D_transformer_mapping:
             )[0]
         else:
             self.mask_instruction = False
-                    
-        
+
+
     def mask(self, input_ids, skiplist):
         return [[(x not in skiplist) and (x != 0) for x in d] for d in input_ids.cpu().tolist()]
-    
-    
+
+
     def query_mask(self, input_ids, skiplist):
         if not self.mask_instruction:
             return self.mask(input_ids, skiplist)
@@ -95,12 +98,12 @@ class step_D_transformer_mapping:
             for seq_index, d in enumerate(input_ids.cpu().tolist())
         ]
         return mask
-    
-    
+
+
     def load_model_cuda(self,):
         self.transformer_mapping_network.cuda()
         self.transformer_mapping_output_linear.cuda()
-    
+
     def invert_attention_mask(self, encoder_attention_mask: Tensor) -> Tensor:
         """
         Invert an attention mask (e.g., switches 0. and 1.).
@@ -124,8 +127,8 @@ class step_D_transformer_mapping:
         encoder_extended_attention_mask = (1.0 - encoder_extended_attention_mask) * torch.finfo(encoder_attention_mask.dtype).min
 
         return encoder_extended_attention_mask
-        
-        
+
+
     def cross_attn_embedding(
         self,
         input_ids,                              # from Step A
@@ -133,6 +136,7 @@ class step_D_transformer_mapping:
         text_encoder_hidden_states,             # from Step A        
         vision_embeddings,                      # from Step B
         transformer_mapping_input_features,     # from Step C
+        output_to_host_times
     ):
         #preparing mask
         mask = torch.tensor(self.query_mask(input_ids, skiplist=self.skiplist)).unsqueeze(2).float().cuda()
@@ -144,8 +148,7 @@ class step_D_transformer_mapping:
         # Obtain cross attention mask
         encoder_extended_attention_mask = self.invert_attention_mask(encoder_mask.squeeze(-1))
         # Pass through the transformer mapping
-        
-        
+
         # ENCODER hidden states: Encoder_bsize, Encoder_seqLen, _
         # ENCODER attention mask: ones_like(encoder_hidden_states)
 
@@ -161,11 +164,17 @@ class step_D_transformer_mapping:
         )
         # Merge with the vision embeddings
         vision_embeddings = torch.cat([vision_embeddings, transformer_mapping_output_features], dim=1)
-        
-        Q = torch.cat([text_embeddings, vision_embeddings], dim=1)
-        query_embeddings = torch.nn.functional.normalize(Q, p=2, dim=2).detach().cpu()
-        return query_embeddings
 
+        Q = torch.cat([text_embeddings, vision_embeddings], dim=1)
+
+        # time before transfer to CPU
+        mvcpu_start=time.perf_counter_ns()
+        query_embeddings = torch.nn.functional.normalize(Q, p=2, dim=2).detach().cpu()
+        # time after transfer to CPU
+        mvcpu_end=time.perf_counter_ns()
+        output_to_host_times.append(mvcpu_end-mvcpu_start)
+
+        return query_embeddings
 
 
 if __name__ =="__main__":
@@ -179,12 +188,62 @@ if __name__ =="__main__":
     # vision_penultimate layer output shape [bsize, 256, 1024] if using CLIP ViT
     vision_penultimate_shape = (bsize, 256, 1024)
     # bag = random.randint(500, 1000)
-    dummy_ids = torch.randint(0, 10000, (bsize, query_length)).to(torch.int64).cuda()
-    dummy_text_embeddings = torch.randn(bsize, query_length, late_interaction_size).cuda()
-    dummy_text_encoder_hidden_states = torch.randn(bsize, query_length, text_hidden_size).cuda()
-    dummy_vision_embeddings = torch.randn(bsize, mapping_network_prefix_length, late_interaction_size).cuda()
-    dummy_tf_mapping_input_features = torch.randn(bsize, vision_penultimate_shape[1], text_hidden_size).cuda()
-    
+
     stepD.load_model_cuda()
-    query_embeddings = stepD.cross_attn_embedding(dummy_ids, dummy_text_embeddings, dummy_text_encoder_hidden_states, dummy_vision_embeddings, dummy_tf_mapping_input_features)
+
+    # GPU memory usage after loading model
+    print("Allocated memory after loading model:", torch.cuda.memory_allocated())
+    print("Reserved memory after loading model:", torch.cuda.memory_reserved())
+
+    load_input_times = []
+    run_times = []
+    output_to_host_times = []
+
+    for i in range(1000):
+        # time before put to GPU
+        mvgpu_start=time.perf_counter_ns()
+        dummy_ids = torch.randint(0, 10000, (bsize, query_length)).to(torch.int64).cuda()
+        dummy_text_embeddings = torch.randn(bsize, query_length, late_interaction_size).cuda()
+        dummy_text_encoder_hidden_states = torch.randn(bsize, query_length, text_hidden_size).cuda()
+        dummy_vision_embeddings = torch.randn(bsize, mapping_network_prefix_length, late_interaction_size).cuda()
+        dummy_tf_mapping_input_features = torch.randn(bsize, vision_penultimate_shape[1], text_hidden_size).cuda()
+        # time after put to GPU
+        mvgpu_end=time.perf_counter_ns()
+        load_input_times.append(mvgpu_end-mvgpu_start)
+
+        # time before running model
+        model_start=time.perf_counter_ns()
+        query_embeddings = stepD.cross_attn_embedding(dummy_ids, dummy_text_embeddings, dummy_text_encoder_hidden_states, dummy_vision_embeddings, dummy_tf_mapping_input_features, output_to_host_times)
+        # time after running model
+        model_end=time.perf_counter_ns()
+        run_times.append(model_end-model_start)
+
+        if i==0:
+            # GPU memory usage after first run
+            print("Allocated memory after 1 run:", torch.cuda.memory_allocated())
+            print("Reserved memory after 1 run:", torch.cuda.memory_reserved())
+
+    # GPU memory usage after 1000 runs
+    print("Allocated memory after 1000 runs:", torch.cuda.memory_allocated())
+    print("Reserved memory after 1000 runs:", torch.cuda.memory_reserved())
+
+    # subtract transfer time from runtime
+    run_times = numpy.subtract(run_times, output_to_host_times)
+
+    runtimes_file = 'step_D_runtime.csv'
+    gpu_transfer = 'step_D_transfer_to_gpu.csv'
+    cpu_transfer = 'step_D_transfer_to_cpu.csv'
+
+    with open(runtimes_file, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(run_times)
+
+    with open(gpu_transfer, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(load_input_times)
+
+    with open(cpu_transfer, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(output_to_host_times)
+
     print(f'query embedding shape is: {query_embeddings.shape}')
