@@ -136,7 +136,8 @@ class step_D_transformer_mapping:
         text_encoder_hidden_states,             # from Step A        
         vision_embeddings,                      # from Step B
         transformer_mapping_input_features,     # from Step C
-        output_to_host_times
+        output_to_host_times,
+        run_id
     ):
         #preparing mask
         mask = torch.tensor(self.query_mask(input_ids, skiplist=self.skiplist)).unsqueeze(2).float().cuda()
@@ -166,6 +167,10 @@ class step_D_transformer_mapping:
         vision_embeddings = torch.cat([vision_embeddings, transformer_mapping_output_features], dim=1)
 
         Q = torch.cat([text_embeddings, vision_embeddings], dim=1)
+
+        if run_id==100:
+            print("Allocated memory when running model:", torch.cuda.memory_allocated())
+            print("Reserved memory when running model:", torch.cuda.memory_reserved())
 
         # time before transfer to CPU
         mvcpu_start=time.perf_counter_ns()
@@ -199,6 +204,9 @@ if __name__ =="__main__":
     run_times = []
     output_to_host_times = []
 
+    # total start time for throughput calculation
+    start=time.perf_counter_ns()
+
     for i in range(1000):
         # time before put to GPU
         mvgpu_start=time.perf_counter_ns()
@@ -213,19 +221,16 @@ if __name__ =="__main__":
 
         # time before running model
         model_start=time.perf_counter_ns()
-        query_embeddings = stepD.cross_attn_embedding(dummy_ids, dummy_text_embeddings, dummy_text_encoder_hidden_states, dummy_vision_embeddings, dummy_tf_mapping_input_features, output_to_host_times)
+        query_embeddings = stepD.cross_attn_embedding(dummy_ids, dummy_text_embeddings, dummy_text_encoder_hidden_states, dummy_vision_embeddings, dummy_tf_mapping_input_features, output_to_host_times, i)
         # time after running model
         model_end=time.perf_counter_ns()
         run_times.append(model_end-model_start)
 
-        if i==0:
-            # GPU memory usage after first run
-            print("Allocated memory after 1 run:", torch.cuda.memory_allocated())
-            print("Reserved memory after 1 run:", torch.cuda.memory_reserved())
-
-    # GPU memory usage after 1000 runs
-    print("Allocated memory after 1000 runs:", torch.cuda.memory_allocated())
-    print("Reserved memory after 1000 runs:", torch.cuda.memory_reserved())
+    # total end time for throughput calculation
+    end=time.perf_counter_ns()
+    time_elapsed=end-start
+    throughput = (1000 * bsize) / (time_elapsed / 1000000000)
+    print("Throughput with batch size", bsize, "(queries/s):", throughput)
 
     # subtract transfer time from runtime
     run_times = numpy.subtract(run_times, output_to_host_times)

@@ -52,10 +52,14 @@ class StepC:
     def load_model_cuda(self):
         self.transformer_mapping_input_linear.cuda()
 
-    def stepC_output(self, vision_second_last_layer_hidden_states):
+    def stepC_output(self, vision_second_last_layer_hidden_states, run_id):
         transformer_mapping_input_features = self.transformer_mapping_input_linear(
             vision_second_last_layer_hidden_states
         )
+
+        if run_id==100:
+            print("Allocated memory when running model:", torch.cuda.memory_allocated())
+            print("Reserved memory when running model:", torch.cuda.memory_reserved())
 
         return transformer_mapping_input_features
 
@@ -73,6 +77,9 @@ if __name__ == "__main__": # Bsize, vision_hidden_size[-2], vision_hidden_size[-
     output_to_host_times = []
     bsize = 16
 
+    # total start time for throughput calculation
+    start=time.perf_counter_ns()
+
     for i in range(1000):
         # time before put to GPU
         mvgpu_start=time.perf_counter_ns()
@@ -83,7 +90,7 @@ if __name__ == "__main__": # Bsize, vision_hidden_size[-2], vision_hidden_size[-
 
         # time before running model
         model_start=time.perf_counter_ns()
-        output = stepc.stepC_output(dummy_hidden_states)
+        output = stepc.stepC_output(dummy_hidden_states, i)
         # time after running model
         model_end=time.perf_counter_ns()
         run_times.append(model_end-model_start)
@@ -95,14 +102,11 @@ if __name__ == "__main__": # Bsize, vision_hidden_size[-2], vision_hidden_size[-
         mvcpu_end=time.perf_counter_ns()
         output_to_host_times.append(mvcpu_end-mvcpu_start)
 
-        if i==0:
-            # GPU memory usage after first run
-            print("Allocated memory after 1 run:", torch.cuda.memory_allocated())
-            print("Reserved memory after 1 run:", torch.cuda.memory_reserved())
-
-    # GPU memory usage after 1000 runs
-    print("Allocated memory after 1000 runs:", torch.cuda.memory_allocated())
-    print("Reserved memory after 1000 runs:", torch.cuda.memory_reserved())
+    # total end time for throughput calculation
+    end=time.perf_counter_ns()
+    time_elapsed=end-start
+    throughput = (1000 * bsize) / (time_elapsed / 1000000000)
+    print("Throughput with batch size", bsize, "(queries/s):", throughput)
 
     runtimes_file = 'step_C_runtime.csv'
     gpu_transfer = 'step_C_transfer_to_gpu.csv'

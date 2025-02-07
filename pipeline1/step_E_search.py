@@ -25,7 +25,7 @@ class StepE:
         )
 
     # input: question, question_id, image_features, 
-    def step_E_search(self, batch, query_embeddings):
+    def step_E_search(self, batch, query_embeddings, run_id):
         custom_quries = {
             question_id: question for question_id, question in zip(batch["question_id"], batch["question"])
         }
@@ -36,6 +36,11 @@ class StepE:
             num_document_to_retrieve=2, # how many documents to retrieve for each query
             centroid_search_batch_size=1,
         )
+
+        if run_id==50:
+            print("Allocated memory when running model:", torch.cuda.memory_allocated())
+            print("Reserved memory when running model:", torch.cuda.memory_reserved())
+
         return ranking.todict()
 
 
@@ -54,6 +59,9 @@ if __name__=='__main__':
     load_input_times = []
     run_times = []
 
+    # total start time for throughput calculation
+    start=time.perf_counter_ns()
+
     for i in range(100):
         # time before put to GPU
         mvgpu_start=time.perf_counter_ns()
@@ -64,19 +72,16 @@ if __name__=='__main__':
 
         # time before running model
         model_start=time.perf_counter_ns()
-        ranking_dict = stepE.step_E_search(dummy_dict, dummy_query_embed)
+        ranking_dict = stepE.step_E_search(dummy_dict, dummy_query_embed, i)
         # time after running model
         model_end=time.perf_counter_ns()
         run_times.append(model_end-model_start)
 
-        if i==0:
-            # GPU memory usage after first run
-            print("Allocated memory after 1 run:", torch.cuda.memory_allocated())
-            print("Reserved memory after 1 run:", torch.cuda.memory_reserved())
-
-    # GPU memory usage after 100 runs
-    print("Allocated memory after 100 runs:", torch.cuda.memory_allocated())
-    print("Reserved memory after 100 runs:", torch.cuda.memory_reserved())
+    # total end time for throughput calculation
+    end=time.perf_counter_ns()
+    time_elapsed=end-start
+    throughput = (100 * bsize) / (time_elapsed / 1000000000)
+    print("Throughput with batch size", bsize, "(queries/s):", throughput)
 
     runtimes_file = 'step_E_runtime.csv'
     gpu_transfer = 'step_E_transfer_to_gpu.csv'

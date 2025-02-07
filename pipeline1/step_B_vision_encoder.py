@@ -81,7 +81,7 @@ class StepB:
         self.query_vision_projection.cuda()
         self.query_vision_encoder.cuda()
 
-    def StepB_output(self, list_of_images, load_input_times):
+    def StepB_output(self, list_of_images, load_input_times, run_id):
         pixel_values = []
         for img in list_of_images:
             encoded = self.image_processor(img, return_tensors="pt")
@@ -113,6 +113,10 @@ class StepB:
 
         vision_second_last_layer_hidden_states = vision_encoder_outputs.hidden_states[-2][:, 1:]
 
+        if run_id==100:
+            print("Allocated memory when running model:", torch.cuda.memory_allocated())
+            print("Reserved memory when running model:", torch.cuda.memory_reserved())
+
         return vision_embeddings, vision_second_last_layer_hidden_states
 
 
@@ -135,10 +139,13 @@ if __name__=="__main__":
     embeddings_to_host_times = []
     hidden_states_to_host_times = []
 
+    # total start time for throughput calculation
+    start=time.perf_counter_ns()
+
     for i in range(1000):
         # time before running model
         model_start=time.perf_counter_ns()
-        vision_embeddings, vision_second_last_layer_hidden_states= stepb.StepB_output(list_of_images, load_input_times)
+        vision_embeddings, vision_second_last_layer_hidden_states= stepb.StepB_output(list_of_images, load_input_times, i)
         # time after running model
         model_end=time.perf_counter_ns()
         run_times.append(model_end-model_start)
@@ -157,14 +164,11 @@ if __name__=="__main__":
         hstates_end=time.perf_counter_ns()
         hidden_states_to_host_times.append(hstates_end-hstates_start)
 
-        if i==0:
-            # GPU memory usage after first run
-            print("Allocated memory after 1 run:", torch.cuda.memory_allocated())
-            print("Reserved memory after 1 run:", torch.cuda.memory_reserved())
-
-    # GPU memory usage after 1000 runs
-    print("Allocated memory after 1000 runs:", torch.cuda.memory_allocated())
-    print("Reserved memory after 1000 runs:", torch.cuda.memory_reserved())
+    # total end time for throughput calculation
+    end=time.perf_counter_ns()
+    time_elapsed=end-start
+    throughput = (1000 * len(list_of_images)) / (time_elapsed / 1000000000)
+    print("Throughput with batch size", len(list_of_images), "(queries/s):", throughput)
 
     # subtract transfer time from runtime
     run_times = numpy.subtract(run_times, load_input_times)

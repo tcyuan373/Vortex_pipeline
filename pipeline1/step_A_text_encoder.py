@@ -68,7 +68,8 @@ class StepA:
     def stepA_output(
         self,
         input_text_sequence,
-        load_input_times
+        load_input_times,
+        run_id
     ):
         # query sentences: bsize of sentences
         encoded_inputs      = self.query_tokenizer(input_text_sequence)
@@ -85,8 +86,11 @@ class StepA:
         text_encoder_hidden_states = text_encoder_outputs[0]
         text_embeddings = self.query_text_encoder_linear(text_encoder_hidden_states)
 
-        # note, text_embeddings not masked yet here!!!!
+        if run_id==100:
+            print("Allocated memory when running model:", torch.cuda.memory_allocated())
+            print("Reserved memory when running model:", torch.cuda.memory_reserved())
 
+        # note, text_embeddings not masked yet here!!!!
         return text_embeddings, input_ids, text_encoder_hidden_states
     
     
@@ -103,10 +107,13 @@ if __name__ == '__main__':
     run_times = []
     output_to_host_times = []
 
+    # total start time for throughput calculation
+    start=time.perf_counter_ns()
+
     for i in range(1000):
         # time before running model
         model_start=time.perf_counter_ns()
-        txt_embed, input_ids, txt_encoder_hs = stepA.stepA_output(raw_sentences, load_input_times)
+        txt_embed, input_ids, txt_encoder_hs = stepA.stepA_output(raw_sentences, load_input_times, i)
         # time after running model
         model_end=time.perf_counter_ns()
         run_times.append(model_end-model_start)
@@ -120,14 +127,11 @@ if __name__ == '__main__':
         mvcpu_end=time.perf_counter_ns()
         output_to_host_times.append(mvcpu_end-mvcpu_start)
 
-        if i==0:
-            # GPU memory usage after first run
-            print("Allocated memory after 1 run:", torch.cuda.memory_allocated())
-            print("Reserved memory after 1 run:", torch.cuda.memory_reserved())
-
-    # GPU memory usage after 1000 runs
-    print("Allocated memory after 1000 runs:", torch.cuda.memory_allocated())
-    print("Reserved memory after 1000 runs:", torch.cuda.memory_reserved())
+    # total end time for throughput calculation
+    end=time.perf_counter_ns()
+    time_elapsed=end-start
+    throughput = (1000 * len(raw_sentences)) / (time_elapsed / 1000000000)
+    print("Throughput with batch size", len(raw_sentences), "(queries/s):", throughput)
 
     # subtract transfer time from runtime
     run_times = numpy.subtract(run_times, load_input_times)
