@@ -34,7 +34,7 @@ class StepE:
             queries=custom_quries,
             query_embeddings=query_embeddings,
             num_document_to_retrieve=2, # how many documents to retrieve for each query
-            centroid_search_batch_size=1,
+            centroid_search_batch_size=bsize,
         )
 
         if run_id==50:
@@ -63,9 +63,11 @@ if __name__=='__main__':
     start=time.perf_counter_ns()
 
     for i in range(100):
+        dummy_query_embed = torch.randn(bsize, random.randint(500, 1000), late_interaction_size)
+
         # time before put to GPU
         mvgpu_start=time.perf_counter_ns()
-        dummy_query_embed = torch.randn(bsize, random.randint(500, 1000), late_interaction_size).cuda()
+        dummy_query_embed = dummy_query_embed.cuda()
         # time after put to GPU
         mvgpu_end=time.perf_counter_ns()
         load_input_times.append(mvgpu_end-mvgpu_start)
