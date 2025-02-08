@@ -81,9 +81,11 @@ if __name__ == "__main__": # Bsize, vision_hidden_size[-2], vision_hidden_size[-
     start=time.perf_counter_ns()
 
     for i in range(1000):
+        dummy_hidden_states = torch.randn(bsize, 256, 1024)
+
         # time before put to GPU
         mvgpu_start=time.perf_counter_ns()
-        dummy_hidden_states = torch.randn(bsize, 256, 1024).cuda()
+        dummy_hidden_states = dummy_hidden_states.cuda()
         # time after put to GPU
         mvgpu_end=time.perf_counter_ns()
         load_input_times.append(mvgpu_end-mvgpu_start)

@@ -172,9 +172,11 @@ class step_D_transformer_mapping:
             print("Allocated memory when running model:", torch.cuda.memory_allocated())
             print("Reserved memory when running model:", torch.cuda.memory_reserved())
 
+        query_embeddings = torch.nn.functional.normalize(Q, p=2, dim=2).detach()
+
         # time before transfer to CPU
         mvcpu_start=time.perf_counter_ns()
-        query_embeddings = torch.nn.functional.normalize(Q, p=2, dim=2).detach().cpu()
+        query_embeddings = query_embeddings.cpu()
         # time after transfer to CPU
         mvcpu_end=time.perf_counter_ns()
         output_to_host_times.append(mvcpu_end-mvcpu_start)
@@ -208,13 +210,19 @@ if __name__ =="__main__":
     start=time.perf_counter_ns()
 
     for i in range(1000):
+        dummy_ids = torch.randint(0, 10000, (bsize, query_length)).to(torch.int64)
+        dummy_text_embeddings = torch.randn(bsize, query_length, late_interaction_size)
+        dummy_text_encoder_hidden_states = torch.randn(bsize, query_length, text_hidden_size)
+        dummy_vision_embeddings = torch.randn(bsize, mapping_network_prefix_length, late_interaction_size)
+        dummy_tf_mapping_input_features = torch.randn(bsize, vision_penultimate_shape[1], text_hidden_size)
+
         # time before put to GPU
         mvgpu_start=time.perf_counter_ns()
-        dummy_ids = torch.randint(0, 10000, (bsize, query_length)).to(torch.int64).cuda()
-        dummy_text_embeddings = torch.randn(bsize, query_length, late_interaction_size).cuda()
-        dummy_text_encoder_hidden_states = torch.randn(bsize, query_length, text_hidden_size).cuda()
-        dummy_vision_embeddings = torch.randn(bsize, mapping_network_prefix_length, late_interaction_size).cuda()
-        dummy_tf_mapping_input_features = torch.randn(bsize, vision_penultimate_shape[1], text_hidden_size).cuda()
+        dummy_ids = dummy_ids.cuda()
+        dummy_text_embeddings = dummy_text_embeddings.cuda()
+        dummy_text_encoder_hidden_states = dummy_text_encoder_hidden_states.cuda()
+        dummy_vision_embeddings = dummy_vision_embeddings.cuda()
+        dummy_tf_mapping_input_features = dummy_tf_mapping_input_features.cuda()
         # time after put to GPU
         mvgpu_end=time.perf_counter_ns()
         load_input_times.append(mvgpu_end-mvgpu_start)
