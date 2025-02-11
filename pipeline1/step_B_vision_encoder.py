@@ -118,4 +118,5 @@ if __name__=="__main__":
     vision_embeddings, vision_second_last_layer_hidden_states= stepb.StepB_output(list_of_images)
     vision_embeddings.cpu()
     vision_second_last_layer_hidden_states.cpu()
+    # vision_embeddings: B, 32, 128;  vision hidden size: B * 256 * 1024
     print(f"vision_embedding shape is : {vision_embeddings.shape} | vision penultimate shape is: {vision_second_last_layer_hidden_states.shape}")
