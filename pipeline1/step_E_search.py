@@ -25,7 +25,7 @@ class StepE:
         )
 
     # input: question, question_id, image_features, 
-    def step_E_search(self, batch, query_embeddings, run_id):
+    def step_E_search(self, batch, query_embeddings):
         custom_quries = {
             question_id: question for question_id, question in zip(batch["question_id"], batch["question"])
         }
@@ -36,11 +36,6 @@ class StepE:
             num_document_to_retrieve=2, # how many documents to retrieve for each query
             centroid_search_batch_size=bsize,
         )
-
-        if run_id==50:
-            print("Allocated memory when running model:", torch.cuda.memory_allocated())
-            print("Reserved memory when running model:", torch.cuda.memory_reserved())
-
         return ranking.todict()
 
 
@@ -74,7 +69,7 @@ if __name__=='__main__':
 
         # time before running model
         model_start=time.perf_counter_ns()
-        ranking_dict = stepE.step_E_search(dummy_dict, dummy_query_embed, i)
+        ranking_dict = stepE.step_E_search(dummy_dict, dummy_query_embed)
         # time after running model
         model_end=time.perf_counter_ns()
         run_times.append(model_end-model_start)

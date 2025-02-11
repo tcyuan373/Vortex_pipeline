@@ -136,8 +136,7 @@ class step_D_transformer_mapping:
         text_encoder_hidden_states,             # from Step A        
         vision_embeddings,                      # from Step B
         transformer_mapping_input_features,     # from Step C
-        output_to_host_times,
-        run_id
+        output_to_host_times
     ):
         #preparing mask
         mask = torch.tensor(self.query_mask(input_ids, skiplist=self.skiplist)).unsqueeze(2).float().cuda()
@@ -167,10 +166,6 @@ class step_D_transformer_mapping:
         vision_embeddings = torch.cat([vision_embeddings, transformer_mapping_output_features], dim=1)
 
         Q = torch.cat([text_embeddings, vision_embeddings], dim=1)
-
-        if run_id==100:
-            print("Allocated memory when running model:", torch.cuda.memory_allocated())
-            print("Reserved memory when running model:", torch.cuda.memory_reserved())
 
         query_embeddings = torch.nn.functional.normalize(Q, p=2, dim=2).detach()
 
@@ -229,7 +224,7 @@ if __name__ =="__main__":
 
         # time before running model
         model_start=time.perf_counter_ns()
-        query_embeddings = stepD.cross_attn_embedding(dummy_ids, dummy_text_embeddings, dummy_text_encoder_hidden_states, dummy_vision_embeddings, dummy_tf_mapping_input_features, output_to_host_times, i)
+        query_embeddings = stepD.cross_attn_embedding(dummy_ids, dummy_text_embeddings, dummy_text_encoder_hidden_states, dummy_vision_embeddings, dummy_tf_mapping_input_features, output_to_host_times)
         # time after running model
         model_end=time.perf_counter_ns()
         run_times.append(model_end-model_start)

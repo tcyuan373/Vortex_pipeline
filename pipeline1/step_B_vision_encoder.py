@@ -81,7 +81,7 @@ class StepB:
         self.query_vision_projection.cuda()
         self.query_vision_encoder.cuda()
 
-    def StepB_output(self, list_of_images, load_input_times, run_id):
+    def StepB_output(self, list_of_images, load_input_times):
         pixel_values = []
         for img in list_of_images:
             encoded = self.image_processor(img, return_tensors="pt")
@@ -113,10 +113,6 @@ class StepB:
 
         vision_second_last_layer_hidden_states = vision_encoder_outputs.hidden_states[-2][:, 1:]
 
-        if run_id==100:
-            print("Allocated memory when running model:", torch.cuda.memory_allocated())
-            print("Reserved memory when running model:", torch.cuda.memory_reserved())
-
         return vision_embeddings, vision_second_last_layer_hidden_states
 
 
@@ -145,7 +141,7 @@ if __name__=="__main__":
     for i in range(1000):
         # time before running model
         model_start=time.perf_counter_ns()
-        vision_embeddings, vision_second_last_layer_hidden_states= stepb.StepB_output(list_of_images, load_input_times, i)
+        vision_embeddings, vision_second_last_layer_hidden_states= stepb.StepB_output(list_of_images, load_input_times)
         # time after running model
         model_end=time.perf_counter_ns()
         run_times.append(model_end-model_start)

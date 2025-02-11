@@ -52,15 +52,10 @@ class StepC:
     def load_model_cuda(self):
         self.transformer_mapping_input_linear.cuda()
 
-    def stepC_output(self, vision_second_last_layer_hidden_states, run_id):
+    def stepC_output(self, vision_second_last_layer_hidden_states):
         transformer_mapping_input_features = self.transformer_mapping_input_linear(
             vision_second_last_layer_hidden_states
         )
-
-        if run_id==100:
-            print("Allocated memory when running model:", torch.cuda.memory_allocated())
-            print("Reserved memory when running model:", torch.cuda.memory_reserved())
-
         return transformer_mapping_input_features
 
 
@@ -92,7 +87,7 @@ if __name__ == "__main__": # Bsize, vision_hidden_size[-2], vision_hidden_size[-
 
         # time before running model
         model_start=time.perf_counter_ns()
-        output = stepc.stepC_output(dummy_hidden_states, i)
+        output = stepc.stepC_output(dummy_hidden_states)
         # time after running model
         model_end=time.perf_counter_ns()
         run_times.append(model_end-model_start)

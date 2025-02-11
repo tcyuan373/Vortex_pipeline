@@ -68,8 +68,7 @@ class StepA:
     def stepA_output(
         self,
         input_text_sequence,
-        load_input_times,
-        run_id
+        load_input_times
     ):
         # query sentences: bsize of sentences
         encoded_inputs      = self.query_tokenizer(input_text_sequence)
@@ -85,10 +84,6 @@ class StepA:
         text_encoder_outputs = self.query_text_encoder(input_ids=input_ids,attention_mask=attention_mask,)
         text_encoder_hidden_states = text_encoder_outputs[0]
         text_embeddings = self.query_text_encoder_linear(text_encoder_hidden_states)
-
-        if run_id==100:
-            print("Allocated memory when running model:", torch.cuda.memory_allocated())
-            print("Reserved memory when running model:", torch.cuda.memory_reserved())
 
         # note, text_embeddings not masked yet here!!!!
         return text_embeddings, input_ids, text_encoder_hidden_states
@@ -113,7 +108,7 @@ if __name__ == '__main__':
     for i in range(1000):
         # time before running model
         model_start=time.perf_counter_ns()
-        txt_embed, input_ids, txt_encoder_hs = stepA.stepA_output(raw_sentences, load_input_times, i)
+        txt_embed, input_ids, txt_encoder_hs = stepA.stepA_output(raw_sentences, load_input_times)
         # time after running model
         model_end=time.perf_counter_ns()
         run_times.append(model_end-model_start)
