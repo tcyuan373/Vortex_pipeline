@@ -31,7 +31,7 @@ class StepE:
             queries=custom_quries,
             query_embeddings=query_embeddings,
             num_document_to_retrieve=2, # how many documents to retrieve for each query
-            centroid_search_batch_size=1,
+            centroid_search_batch_size=bsize,
         )
         return ranking.todict()
 
