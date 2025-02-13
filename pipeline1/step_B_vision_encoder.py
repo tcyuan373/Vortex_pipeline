@@ -81,15 +81,7 @@ class StepB:
         self.query_vision_projection.cuda()
         self.query_vision_encoder.cuda()
 
-    def StepB_output(self, list_of_images, load_input_times):
-        pixel_values = []
-        for img in list_of_images:
-            encoded = self.image_processor(img, return_tensors="pt")
-            pixel_values.append(encoded.pixel_values)
-        pixel_values = torch.stack(pixel_values, dim=0)
-
-        batch_size = pixel_values.shape[0]
-
+    def StepB_output(self, pixel_values, batch_size, load_input_times):
         # time before put to GPU
         mvgpu_start=time.perf_counter_ns()
         # Forward the vision encoder
@@ -123,6 +115,15 @@ if __name__=="__main__":
     for img_path in img_paths:
         image = Image.open(img_path).convert("RGB")
         list_of_images.append(image)
+
+    pixel_values = []
+    image_processor = AutoImageProcessor.from_pretrained('openai/clip-vit-large-patch14')
+    for img in list_of_images:
+        encoded = image_processor(img, return_tensors="pt")
+        pixel_values.append(encoded.pixel_values)
+    pixel_values = torch.stack(pixel_values, dim=0)
+    batch_size = pixel_values.shape[0]
+
     stepb = StepB()
     stepb.load_model_cuda()
 
@@ -141,7 +142,7 @@ if __name__=="__main__":
     for i in range(1000):
         # time before running model
         model_start=time.perf_counter_ns()
-        vision_embeddings, vision_second_last_layer_hidden_states= stepb.StepB_output(list_of_images, load_input_times)
+        vision_embeddings, vision_second_last_layer_hidden_states = stepb.StepB_output(pixel_values, batch_size, load_input_times)
         # time after running model
         model_end=time.perf_counter_ns()
         run_times.append(model_end-model_start)
@@ -163,8 +164,8 @@ if __name__=="__main__":
     # total end time for throughput calculation
     end=time.perf_counter_ns()
     time_elapsed=end-start
-    throughput = (1000 * len(list_of_images)) / (time_elapsed / 1000000000)
-    print("Throughput with batch size", len(list_of_images), "(queries/s):", throughput)
+    throughput = (1000 * batch_size) / (time_elapsed / 1000000000)
+    print("Throughput with batch size", batch_size, "(queries/s):", throughput)
 
     # subtract transfer time from runtime
     run_times = numpy.subtract(run_times, load_input_times)
