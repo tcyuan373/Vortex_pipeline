@@ -81,15 +81,7 @@ class StepB:
         self.query_vision_projection.cuda()
         self.query_vision_encoder.cuda()
 
-    def StepB_output(self, pixel_values, batch_size, load_input_times):
-        # time before put to GPU
-        mvgpu_start=time.perf_counter_ns()
-        # Forward the vision encoder
-        pixel_values = pixel_values.to(self.device).cuda()
-        # time after put to GPU
-        mvgpu_end=time.perf_counter_ns()
-        load_input_times.append(mvgpu_end-mvgpu_start)
-
+    def StepB_output(self, pixel_values, batch_size):
         if len(pixel_values.shape) == 5:
             # Multiple ROIs are provided
             # merge the first two dimensions
@@ -115,14 +107,8 @@ if __name__=="__main__":
     for img_path in img_paths:
         image = Image.open(img_path).convert("RGB")
         list_of_images.append(image)
-
-    pixel_values = []
+    batch_size = len(list_of_images)
     image_processor = AutoImageProcessor.from_pretrained('openai/clip-vit-large-patch14')
-    for img in list_of_images:
-        encoded = image_processor(img, return_tensors="pt")
-        pixel_values.append(encoded.pixel_values)
-    pixel_values = torch.stack(pixel_values, dim=0)
-    batch_size = pixel_values.shape[0]
 
     stepb = StepB()
     stepb.load_model_cuda()
@@ -140,9 +126,23 @@ if __name__=="__main__":
     start=time.perf_counter_ns()
 
     for i in range(1000):
+        pixel_values = []
+        for img in list_of_images:
+            encoded = image_processor(img, return_tensors="pt")
+            pixel_values.append(encoded.pixel_values)
+        pixel_values = torch.stack(pixel_values, dim=0)
+
+        # time before put to GPU
+        mvgpu_start=time.perf_counter_ns()
+        # Forward the vision encoder
+        pixel_values = pixel_values.to('cuda')
+        # time after put to GPU
+        mvgpu_end=time.perf_counter_ns()
+        load_input_times.append(mvgpu_end-mvgpu_start)
+
         # time before running model
         model_start=time.perf_counter_ns()
-        vision_embeddings, vision_second_last_layer_hidden_states = stepb.StepB_output(pixel_values, batch_size, load_input_times)
+        vision_embeddings, vision_second_last_layer_hidden_states = stepb.StepB_output(pixel_values, batch_size)
         # time after running model
         model_end=time.perf_counter_ns()
         run_times.append(model_end-model_start)
@@ -166,9 +166,6 @@ if __name__=="__main__":
     time_elapsed=end-start
     throughput = (1000 * batch_size) / (time_elapsed / 1000000000)
     print("Throughput with batch size", batch_size, "(queries/s):", throughput)
-
-    # subtract transfer time from runtime
-    run_times = numpy.subtract(run_times, load_input_times)
 
     runtimes_file = 'step_B_runtime.csv'
     gpu_transfer = 'step_B_transfer_to_gpu.csv'
