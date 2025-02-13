@@ -112,7 +112,6 @@ if __name__=="__main__":
 
     stepb = StepB()
     stepb.load_model_cuda()
-<<<<<<< HEAD
 
     # GPU memory usage after loading model
     print("Allocated memory after loading model:", torch.cuda.memory_allocated())
@@ -190,10 +189,3 @@ if __name__=="__main__":
         writer.writerow(hidden_states_to_host_times)
 
     print(f"vision_embedding shape is : {vision_embeddings.shape} | vision penultimate shape is: {vision_second_last_layer_hidden_states.shape}")
-=======
-    vision_embeddings, vision_second_last_layer_hidden_states= stepb.StepB_output(list_of_images)
-    vision_embeddings.cpu()
-    vision_second_last_layer_hidden_states.cpu()
-    # vision_embeddings: B, 32, 128;  vision hidden size: B * 256 * 1024
-    print(f"vision_embedding shape is : {vision_embeddings.shape} | vision penultimate shape is: {vision_second_last_layer_hidden_states.shape}")
->>>>>>> main
