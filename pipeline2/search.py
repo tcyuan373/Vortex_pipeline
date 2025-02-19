@@ -23,12 +23,24 @@ class SearchUDL():
                          self.cluster_embeddings.append(emb)
           self.cluster_embeddings = np.vstack(self.cluster_embeddings).astype(np.float32)  
 
+     # Note that in this implementation, use a undistributed IVF Flat search
      def build_ivf_index(self, nlist=10):
           dim = self.cluster_embeddings.shape[1]  
           quantizer = faiss.IndexFlatL2(dim) 
           self.index = faiss.IndexIVFFlat(quantizer, dim, nlist, faiss.METRIC_L2)
           self.index.train(self.cluster_embeddings)  
-          self.index.add(self.cluster_embeddings)    
+          self.index.add(self.cluster_embeddings)      
+
+          res = faiss.StandardGpuResources()  
+          quantizer = faiss.IndexFlatL2(dim)  
+          quantizer = faiss.index_cpu_to_gpu(res, 0, quantizer)  
+
+          self.index = faiss.IndexIVFFlat(quantizer, dim, nlist, faiss.METRIC_L2)
+          self.index = faiss.index_cpu_to_gpu(res, 0, self.index)  # Move full index to GPU
+
+          # Train and add embeddings
+          self.index.train(self.cluster_embeddings)
+          self.index.add(self.cluster_embeddings) 
      
      def search_queries(self, query_embeddings, top_k=5):
           distances, indices = self.index.search(query_embeddings, top_k)

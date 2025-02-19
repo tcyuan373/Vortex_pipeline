@@ -14,17 +14,22 @@ def textcheck(premise):
 
      # run through model pre-trained on MNLI
      input_ids = tokenizer.encode(premise, hypothesis, return_tensors='pt').to(device)
-     logits = model(input_ids)[0]
+     result = model(input_ids)
+     print(f"result shape: {result.shape}")
+     logits = result[0]
 
      # we throw away "neutral" (dim 1) and take the probability of
      # "entailment" (2) as the probability of the label being true 
      entail_contradiction_logits = logits[:,[0,2]]
      probs = entail_contradiction_logits.softmax(dim=1)
      true_prob = probs[:,1].item() * 100
+     print(f"true_prob shape: {probs.shape}")
      print(f'Probability that the label is true: {true_prob:0.2f}%')
      return true_prob
 
 
-
+premise = 'A new model offers an explanation for how the Galilean satellites formed around the solar system’s largest world.'
+batch_premise = [premise, premise, premise]
+textcheck(batch_premise)
 
 
