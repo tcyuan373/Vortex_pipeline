@@ -15,7 +15,7 @@ def textcheck(premise):
      # run through model pre-trained on MNLI
      input_ids = tokenizer.encode(premise, hypothesis, return_tensors='pt').to(device)
      result = model(input_ids)
-     print(f"result shape: {result.shape}")
+     print(f"result shape: {len(result)}")
      logits = result[0]
 
      # we throw away "neutral" (dim 1) and take the probability of
