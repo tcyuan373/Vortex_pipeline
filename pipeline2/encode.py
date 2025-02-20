@@ -32,10 +32,7 @@ class EncoderUDL():
      
 
      def encode(self,query_list):
-          encode_result = self.encoder.encode(
-               query_list, return_dense=True, return_sparse=False, return_colbert_vecs=False
-          )
-          query_embeddings = encode_result['dense_vecs']
+          query_embeddings = self.encoder.encode(query_list)
           return query_embeddings
         
      def __del__(self):
