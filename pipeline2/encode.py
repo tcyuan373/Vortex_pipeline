@@ -8,7 +8,7 @@ import time
 import warnings
 warnings.filterwarnings("ignore")
 
-from FlagEmbedding import BGEM3FlagModel
+from FlagEmbedding import BGEM3FlagModel, FlagModel
 
 
 
@@ -18,9 +18,17 @@ class EncoderUDL():
           '''
           Constructor
           '''
-          self.encoder = BGEM3FlagModel("BAAI/bge-m3", use_fp16=False, device="cpu")
+          # self.encoder = BGEM3FlagModel(
+          #       model_name_or_path='BAAI/bge-small-en-v1.5',
+          #       device='cuda',
+          #       use_fp16=False,
+          #   )
+          self.encoder = FlagModel(
+               'BAAI/bge-small-en-v1.5',
+               devices="cuda:0",
+          )
           self.centroids_embeddings = np.array([])
-          self.emb_dim = 1024
+          self.emb_dim = 384
      
 
      def encode(self,query_list):
@@ -28,7 +36,6 @@ class EncoderUDL():
                query_list, return_dense=True, return_sparse=False, return_colbert_vecs=False
           )
           query_embeddings = encode_result['dense_vecs']
-          query_embeddings = query_embeddings[:, :self.emb_dim]  
           return query_embeddings
         
      def __del__(self):
@@ -39,6 +46,5 @@ if __name__ == "__main__":
      udl = EncoderUDL()
      query_list = ["What is the capital of France?", "What is the capital of USA?"]
      query_embeddings = udl.encode(query_list)
-     print(query_embeddings.shape)
-     print(query_embeddings)
+     print(f"finished shape:{query_embeddings.shape}")
      del udl
