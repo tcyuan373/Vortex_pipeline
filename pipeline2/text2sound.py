@@ -4,6 +4,7 @@
 ## Using speech t5
 from transformers import SpeechT5Processor, SpeechT5ForTextToSpeech, SpeechT5HifiGan
 from datasets import load_dataset
+import csv
 import torch
 import soundfile as sf
 import numpy as np
@@ -15,7 +16,7 @@ def split_text(text, chunk_size=600):
      return textwrap.wrap(text, width=chunk_size)  # Splits into smaller chunks
 
 
-def text2soundfunc(text):
+def text2soundfunc(text, run_times):
      device = "cuda" if torch.cuda.is_available() else "cpu"  # Automatically select GPU if available
 
      # Load models and move them to GPU if available
@@ -33,7 +34,18 @@ def text2soundfunc(text):
 
      for idx, chunk in enumerate(text_chunks):
           inputs = processor(text=chunk, return_tensors="pt").to(device)  # Move inputs to GPU
+
+          model_start_event = torch.cuda.Event(enable_timing=True)
+          model_end_event = torch.cuda.Event(enable_timing=True)
+
+          # time before running model
+          model_start_event.record()
           speech = model.generate_speech(inputs["input_ids"], speaker_embeddings, vocoder=vocoder)
+          # time after running model
+          model_end_event.record()
+          torch.cuda.synchronize()
+          run_times.append((model_start_event.elapsed_time(model_end_event)) * 1e6)
+
           speech_outputs.append(speech.cpu().numpy())  # Move back to CPU before converting to NumPy
           print(f"Chunk {idx+1}/{len(text_chunks)} processed.")
      
@@ -63,5 +75,13 @@ response = " Based on the provided documents, here are some average salary range
 \
 Keep in mind that these figures are averages and can vary widely"
 
+run_times = []
 # response = " Based on the provided documents, here are some average salary ranges for bartenders:"
-text2soundfunc(response)
+for i in range(10):
+     text2soundfunc(response, run_times)
+
+runtimes_file = 'text2sound_runtime.csv'
+
+with open(runtimes_file, mode='w', newline='') as file:
+     writer = csv.writer(file)
+     writer.writerow(run_times)
