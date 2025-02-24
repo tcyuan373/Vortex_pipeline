@@ -73,13 +73,19 @@ class StepA:
         # query sentences: bsize of sentences
         encoded_inputs      = self.query_tokenizer(input_text_sequence)
 
+        # CUDA events for accurate profiling
+        mvgpu_start_event = torch.cuda.Event(enable_timing=True)
+        mvgpu_end_event = torch.cuda.Event(enable_timing=True)
+
         # time before put to GPU
-        mvgpu_start=time.perf_counter_ns()
+        mvgpu_start_event.record()
+
         input_ids           = encoded_inputs['input_ids'].to(self.query_text_encoder.device).cuda()
         attention_mask      = encoded_inputs['attention_mask'].to(self.query_text_encoder.device).cuda()
         # time after put to GPU
-        mvgpu_end=time.perf_counter_ns()
-        load_input_times.append(mvgpu_end-mvgpu_start)
+        mvgpu_end_event.record()
+        torch.cuda.synchronize()
+        load_input_times.append((mvgpu_start_event.elapsed_time(mvgpu_end_event)) * 1e6)
 
         text_encoder_outputs = self.query_text_encoder(input_ids=input_ids,attention_mask=attention_mask,)
         text_encoder_hidden_states = text_encoder_outputs[0]
@@ -102,29 +108,42 @@ if __name__ == '__main__':
     run_times = []
     output_to_host_times = []
 
+    total_start_event = torch.cuda.Event(enable_timing=True)
+    total_end_event = torch.cuda.Event(enable_timing=True)
+
     # total start time for throughput calculation
-    start=time.perf_counter_ns()
+    total_start_event.record()
 
     for i in range(1000):
+        # CUDA events for accurate profiling
+        model_start_event = torch.cuda.Event(enable_timing=True)
+        model_end_event = torch.cuda.Event(enable_timing=True)
+        mvcpu_start_event = torch.cuda.Event(enable_timing=True)
+        mvcpu_end_event = torch.cuda.Event(enable_timing=True)
+
         # time before running model
-        model_start=time.perf_counter_ns()
+        model_start_event.record()
         txt_embed, input_ids, txt_encoder_hs = stepA.stepA_output(raw_sentences, load_input_times)
         # time after running model
-        model_end=time.perf_counter_ns()
-        run_times.append(model_end-model_start)
+        model_end_event.record()
+        torch.cuda.synchronize()
+        run_times.append((model_start_event.elapsed_time(model_end_event)) * 1e6)
 
         # time before transfer to CPU
-        mvcpu_start=time.perf_counter_ns()
+        mvcpu_start_event.record()
         txt_embed.cpu()
         input_ids.cpu()
         txt_encoder_hs.cpu()
         # time after transfer to CPU
-        mvcpu_end=time.perf_counter_ns()
-        output_to_host_times.append(mvcpu_end-mvcpu_start)
+        mvcpu_end_event.record()
+        torch.cuda.synchronize()
+        output_to_host_times.append((mvcpu_start_event.elapsed_time(mvcpu_end_event)) * 1e6)
 
     # total end time for throughput calculation
-    end=time.perf_counter_ns()
-    time_elapsed=end-start
+    total_end_event.record()
+    torch.cuda.synchronize()
+
+    time_elapsed=(total_start_event.elapsed_time(total_end_event)) * 1e6
     throughput = (1000 * len(raw_sentences)) / (time_elapsed / 1000000000)
     print("Throughput with batch size", len(raw_sentences), "(queries/s):", throughput)
 

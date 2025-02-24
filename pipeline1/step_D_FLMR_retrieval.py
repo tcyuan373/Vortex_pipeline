@@ -169,12 +169,17 @@ class step_D_transformer_mapping:
 
         query_embeddings = torch.nn.functional.normalize(Q, p=2, dim=2).detach()
 
+        # CUDA events for accurate profiling
+        mvcpu_start_event = torch.cuda.Event(enable_timing=True)
+        mvcpu_end_event = torch.cuda.Event(enable_timing=True)
+
         # time before transfer to CPU
-        mvcpu_start=time.perf_counter_ns()
+        mvcpu_start_event.record()
         query_embeddings = query_embeddings.cpu()
         # time after transfer to CPU
-        mvcpu_end=time.perf_counter_ns()
-        output_to_host_times.append(mvcpu_end-mvcpu_start)
+        mvcpu_end_event.record()
+        torch.cuda.synchronize()
+        output_to_host_times.append((mvcpu_start_event.elapsed_time(mvcpu_end_event)) * 1e6)
 
         return query_embeddings
 
@@ -201,10 +206,19 @@ if __name__ =="__main__":
     run_times = []
     output_to_host_times = []
 
+    # CUDA events for accurate profiling
+    total_start_event = torch.cuda.Event(enable_timing=True)
+    total_end_event = torch.cuda.Event(enable_timing=True)
     # total start time for throughput calculation
-    start=time.perf_counter_ns()
+    total_start_event.record()
 
     for i in range(1000):
+         # CUDA events for accurate profiling
+        mvgpu_start_event = torch.cuda.Event(enable_timing=True)
+        mvgpu_end_event = torch.cuda.Event(enable_timing=True)
+        model_start_event = torch.cuda.Event(enable_timing=True)
+        model_end_event = torch.cuda.Event(enable_timing=True)
+
         dummy_ids = torch.randint(0, 10000, (bsize, query_length)).to(torch.int64)
         dummy_text_embeddings = torch.randn(bsize, query_length, late_interaction_size)
         dummy_text_encoder_hidden_states = torch.randn(bsize, query_length, text_hidden_size)
@@ -212,26 +226,29 @@ if __name__ =="__main__":
         dummy_tf_mapping_input_features = torch.randn(bsize, vision_penultimate_shape[1], text_hidden_size)
 
         # time before put to GPU
-        mvgpu_start=time.perf_counter_ns()
+        mvgpu_start_event.record()
         dummy_ids = dummy_ids.cuda()
         dummy_text_embeddings = dummy_text_embeddings.cuda()
         dummy_text_encoder_hidden_states = dummy_text_encoder_hidden_states.cuda()
         dummy_vision_embeddings = dummy_vision_embeddings.cuda()
         dummy_tf_mapping_input_features = dummy_tf_mapping_input_features.cuda()
         # time after put to GPU
-        mvgpu_end=time.perf_counter_ns()
-        load_input_times.append(mvgpu_end-mvgpu_start)
+        mvgpu_end_event.record()
+        torch.cuda.synchronize()
+        load_input_times.append((mvgpu_start_event.elapsed_time(mvgpu_end_event)) * 1e6)
 
         # time before running model
-        model_start=time.perf_counter_ns()
+        model_start_event.record()
         query_embeddings = stepD.cross_attn_embedding(dummy_ids, dummy_text_embeddings, dummy_text_encoder_hidden_states, dummy_vision_embeddings, dummy_tf_mapping_input_features, output_to_host_times)
         # time after running model
-        model_end=time.perf_counter_ns()
-        run_times.append(model_end-model_start)
+        model_end_event.record()
+        torch.cuda.synchronize()
+        run_times.append((model_start_event.elapsed_time(model_end_event)) * 1e6)
 
     # total end time for throughput calculation
-    end=time.perf_counter_ns()
-    time_elapsed=end-start
+    total_end_event.record()
+    torch.cuda.synchronize()
+    time_elapsed=(total_start_event.elapsed_time(total_end_event)) * 1e6
     throughput = (1000 * bsize) / (time_elapsed / 1000000000)
     print("Throughput with batch size", bsize, "(queries/s):", throughput)
 
