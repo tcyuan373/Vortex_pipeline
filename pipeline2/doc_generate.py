@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import io
+import csv
 import numpy as np
 import json
 import pickle
@@ -93,6 +94,24 @@ if __name__ == "__main__":
      udl = DocGenerateUDL()
      query_text = "What is the capital of France?"
      doc_ids = [0, 1, 2, 3, 4]
-     result = udl.generate(query_text, doc_ids)
-     print(f"finished generating response: {result}")
+
+     run_times = []
+
+     for i in range(1000):
+          model_start_event = torch.cuda.Event(enable_timing=True)
+          model_end_event = torch.cuda.Event(enable_timing=True)
+
+          model_start_event.record()
+          result = udl.generate(query_text, doc_ids)
+          model_end_event.record()
+          torch.cuda.synchronize()
+          run_times.append((model_start_event.elapsed_time(model_end_event)) * 1e6)
+          # print(f"finished generating response: {result}")
+     
      del udl
+
+     runtimes_file = 'doc_generate_runtime.csv'
+
+     with open(runtimes_file, mode='w', newline='') as file:
+         writer = csv.writer(file)
+         writer.writerow(run_times)
