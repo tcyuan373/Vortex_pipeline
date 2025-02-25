@@ -87,10 +87,10 @@ class DocGenerateUDL():
                
      
      
-     def generate(self, query_text, doc_ids):
+     def generate(self, query_text, doc_ids, run_times):
           doc_list = self.get_documents(doc_ids)
           
-          llm_res = self.llm_generate(query_text, doc_list)
+          llm_res = self.llm_generate(query_text, doc_list, run_times)
 
           return llm_res
 
