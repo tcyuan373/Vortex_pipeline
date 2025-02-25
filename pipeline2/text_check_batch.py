@@ -2,7 +2,7 @@ from transformers import BartForSequenceClassification, BartTokenizer
 import torch
 import csv
 
-def textcheck(batch_premise):
+def textcheck(batch_premise, run_times):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     tokenizer = BartTokenizer.from_pretrained('facebook/bart-large-mnli')
     model = BartForSequenceClassification.from_pretrained('facebook/bart-large-mnli').to(device)
@@ -13,9 +13,20 @@ def textcheck(batch_premise):
     inputs = tokenizer(batch_premise, [hypothesis] * len(batch_premise), 
                        return_tensors='pt', padding=True, truncation=True).to(device)
     
+    model_start_event = torch.cuda.Event(enable_timing=True)
+    model_end_event = torch.cuda.Event(enable_timing=True)
+
+    # time before running model
+    model_start_event.record()
+
     # Forward pass
     with torch.no_grad():
         result = model(**inputs)
+
+    # time after running model
+    model_end_event.record()
+    torch.cuda.synchronize()
+    run_times.append((model_start_event.elapsed_time(model_end_event)) * 1e6)
     
     logits = result.logits  # result[0] is now deprecated, use result.logits instead
 
@@ -37,18 +48,7 @@ if __name__ == "__main__":
     
     run_times = []
     for i in range(1000):
-        model_start_event = torch.cuda.Event(enable_timing=True)
-        model_end_event = torch.cuda.Event(enable_timing=True)
-
-        # time before running model
-        model_start_event.record()
-        
-        textcheck(batch_premise)
-
-        # time after running model
-        model_end_event.record()
-        torch.cuda.synchronize()
-        run_times.append((model_start_event.elapsed_time(model_end_event)) * 1e6)
+        textcheck(batch_premise, run_times)
 
     runtimes_file = 'text_check_batch_runtime.csv'
 

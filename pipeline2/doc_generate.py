@@ -40,12 +40,17 @@ class DocGenerateUDL():
           self.load_llm()
           
 
-     def llm_generate(self, query_text, doc_list ):
+     def llm_generate(self, query_text, doc_list, run_times):
           messages = [
                {"role": "system", "content": "Answer the user query based on this list of documents:"+" ".join(doc_list)},
                {"role": "user", "content": query_text},
           ]
-          
+
+          model_start_event = torch.cuda.Event(enable_timing=True)
+          model_end_event = torch.cuda.Event(enable_timing=True)
+
+          model_start_event.record()
+
           tmp_res = self.pipeline(
                messages,
                max_new_tokens=256,
@@ -54,10 +59,15 @@ class DocGenerateUDL():
                temperature=0.6,
                top_p=0.9,
           )
+
+          model_end_event.record()
+          torch.cuda.synchronize()
+          run_times.append((model_start_event.elapsed_time(model_end_event)) * 1e6)
+
           raw_text = tmp_res[0]["generated_text"][-1]['content']
 
-          print(f"for query:{query_text}")
-          print(f"the llm generated response: {raw_text}")
+          # print(f"for query:{query_text}")
+          # print(f"the llm generated response: {raw_text}")
           return raw_text
 
      # Retrieve Documents Based on FAISS Indices
@@ -98,14 +108,7 @@ if __name__ == "__main__":
      run_times = []
 
      for i in range(1000):
-          model_start_event = torch.cuda.Event(enable_timing=True)
-          model_end_event = torch.cuda.Event(enable_timing=True)
-
-          model_start_event.record()
-          result = udl.generate(query_text, doc_ids)
-          model_end_event.record()
-          torch.cuda.synchronize()
-          run_times.append((model_start_event.elapsed_time(model_end_event)) * 1e6)
+          result = udl.generate(query_text, doc_ids, run_times)
           # print(f"finished generating response: {result}")
      
      del udl
