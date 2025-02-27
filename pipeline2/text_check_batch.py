@@ -47,7 +47,7 @@ if __name__ == "__main__":
     batch_premise = [premise, premise, premise]
     
     run_times = []
-    for i in range(1000):
+    for i in range(100):
         textcheck(batch_premise, run_times)
 
     runtimes_file = 'text_check_batch_runtime.csv'

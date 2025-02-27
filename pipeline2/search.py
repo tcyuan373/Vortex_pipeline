@@ -61,7 +61,7 @@ if __name__ == "__main__":
      query_embeddings = load_query_embeddings(query_emb_file)
 
      run_times = []
-     for i in range(1000):
+     for i in range(100):
           model_start_event = torch.cuda.Event(enable_timing=True)
           model_end_event = torch.cuda.Event(enable_timing=True)
 

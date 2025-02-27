@@ -107,7 +107,7 @@ if __name__ == "__main__":
 
      run_times = []
 
-     for i in range(1000):
+     for i in range(100):
           result = udl.generate(query_text, doc_ids, run_times)
           # print(f"finished generating response: {result}")
      
