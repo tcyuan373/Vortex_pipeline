@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import io
+import csv
 import numpy as np
 import json
 import pickle
@@ -39,12 +40,17 @@ class DocGenerateUDL():
           self.load_llm()
           
 
-     def llm_generate(self, query_text, doc_list ):
+     def llm_generate(self, query_text, doc_list, run_times):
           messages = [
                {"role": "system", "content": "Answer the user query based on this list of documents:"+" ".join(doc_list)},
                {"role": "user", "content": query_text},
           ]
-          
+
+          model_start_event = torch.cuda.Event(enable_timing=True)
+          model_end_event = torch.cuda.Event(enable_timing=True)
+
+          model_start_event.record()
+
           tmp_res = self.pipeline(
                messages,
                max_new_tokens=256,
@@ -53,10 +59,15 @@ class DocGenerateUDL():
                temperature=0.6,
                top_p=0.9,
           )
+
+          model_end_event.record()
+          torch.cuda.synchronize()
+          run_times.append((model_start_event.elapsed_time(model_end_event)) * 1e6)
+
           raw_text = tmp_res[0]["generated_text"][-1]['content']
 
-          print(f"for query:{query_text}")
-          print(f"the llm generated response: {raw_text}")
+          # print(f"for query:{query_text}")
+          # print(f"the llm generated response: {raw_text}")
           return raw_text
 
      # Retrieve Documents Based on FAISS Indices
@@ -76,10 +87,10 @@ class DocGenerateUDL():
                
      
      
-     def generate(self, query_text, doc_ids):
+     def generate(self, query_text, doc_ids, run_times):
           doc_list = self.get_documents(doc_ids)
           
-          llm_res = self.llm_generate(query_text, doc_list)
+          llm_res = self.llm_generate(query_text, doc_list, run_times)
 
           return llm_res
 
@@ -93,6 +104,17 @@ if __name__ == "__main__":
      udl = DocGenerateUDL()
      query_text = "What is the capital of France?"
      doc_ids = [0, 1, 2, 3, 4]
-     result = udl.generate(query_text, doc_ids)
-     print(f"finished generating response: {result}")
+
+     run_times = []
+
+     for i in range(100):
+          result = udl.generate(query_text, doc_ids, run_times)
+          # print(f"finished generating response: {result}")
+     
      del udl
+
+     runtimes_file = 'doc_generate_runtime.csv'
+
+     with open(runtimes_file, mode='w', newline='') as file:
+         writer = csv.writer(file)
+         writer.writerow(run_times)

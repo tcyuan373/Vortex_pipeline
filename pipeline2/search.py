@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 import pickle
 import os
+import torch
+import csv
 
 class SearchUDL():
 
@@ -57,9 +59,26 @@ if __name__ == "__main__":
      cluster_dir = dataset_dir 
      searcher = SearchUDL(cluster_dir = cluster_dir)
      query_embeddings = load_query_embeddings(query_emb_file)
-     distances, indices = searcher.search_queries(query_embeddings, top_k=5)
-     print(f"distances.shape: {distances.shape}")
-     print(f"indices.shape: {indices.shape}")
 
+     run_times = []
+     for i in range(100):
+          model_start_event = torch.cuda.Event(enable_timing=True)
+          model_end_event = torch.cuda.Event(enable_timing=True)
 
+          # time before running model
+          model_start_event.record()
 
+          distances, indices = searcher.search_queries(query_embeddings, top_k=5)
+        #   print(f"distances.shape: {distances.shape}")
+        #   print(f"indices.shape: {indices.shape}")
+
+          # time after running model
+          model_end_event.record()
+          torch.cuda.synchronize()
+          run_times.append((model_start_event.elapsed_time(model_end_event)) * 1e6)
+
+     runtimes_file = 'search_runtime.csv'
+
+     with open(runtimes_file, mode='w', newline='') as file:
+          writer = csv.writer(file)
+          writer.writerow(run_times)
