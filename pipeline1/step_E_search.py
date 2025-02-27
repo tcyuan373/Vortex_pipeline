@@ -54,29 +54,41 @@ if __name__=='__main__':
     load_input_times = []
     run_times = []
 
+    # CUDA events for accurate profiling
+    total_start_event = torch.cuda.Event(enable_timing=True)
+    total_end_event = torch.cuda.Event(enable_timing=True)
     # total start time for throughput calculation
-    start=time.perf_counter_ns()
+    total_start_event.record()
 
     for i in range(100):
+        # CUDA events for accurate profiling
+        mvgpu_start_event = torch.cuda.Event(enable_timing=True)
+        mvgpu_end_event = torch.cuda.Event(enable_timing=True)
+        model_start_event = torch.cuda.Event(enable_timing=True)
+        model_end_event = torch.cuda.Event(enable_timing=True)
+
         dummy_query_embed = torch.randn(bsize, random.randint(500, 1000), late_interaction_size)
 
         # time before put to GPU
-        mvgpu_start=time.perf_counter_ns()
+        mvgpu_start_event.record()
         dummy_query_embed = dummy_query_embed.cuda()
         # time after put to GPU
-        mvgpu_end=time.perf_counter_ns()
-        load_input_times.append(mvgpu_end-mvgpu_start)
+        mvgpu_end_event.record()
+        torch.cuda.synchronize()
+        load_input_times.append((mvgpu_start_event.elapsed_time(mvgpu_end_event)) * 1e6)
 
         # time before running model
-        model_start=time.perf_counter_ns()
+        model_start_event.record()
         ranking_dict = stepE.step_E_search(dummy_dict, dummy_query_embed)
         # time after running model
-        model_end=time.perf_counter_ns()
-        run_times.append(model_end-model_start)
+        model_end_event.record()
+        torch.cuda.synchronize()
+        run_times.append((model_start_event.elapsed_time(model_end_event)) * 1e6)
 
     # total end time for throughput calculation
-    end=time.perf_counter_ns()
-    time_elapsed=end-start
+    total_end_event.record()
+    torch.cuda.synchronize()
+    time_elapsed=(total_start_event.elapsed_time(total_end_event)) * 1e6
     throughput = (100 * bsize) / (time_elapsed / 1000000000)
     print("Throughput with batch size", bsize, "(queries/s):", throughput)
 

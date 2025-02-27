@@ -72,36 +72,51 @@ if __name__ == "__main__": # Bsize, vision_hidden_size[-2], vision_hidden_size[-
     output_to_host_times = []
     bsize = 16
 
+    # CUDA events for accurate profiling
+    total_start_event = torch.cuda.Event(enable_timing=True)
+    total_end_event = torch.cuda.Event(enable_timing=True)
     # total start time for throughput calculation
-    start=time.perf_counter_ns()
+    total_start_event.record()
 
     for i in range(1000):
+        # CUDA events for accurate profiling
+        mvgpu_start_event = torch.cuda.Event(enable_timing=True)
+        mvgpu_end_event = torch.cuda.Event(enable_timing=True)
+        model_start_event = torch.cuda.Event(enable_timing=True)
+        model_end_event = torch.cuda.Event(enable_timing=True)
+        mvcpu_start_event = torch.cuda.Event(enable_timing=True)
+        mvcpu_end_event = torch.cuda.Event(enable_timing=True)
+
         dummy_hidden_states = torch.randn(bsize, 256, 1024)
 
         # time before put to GPU
-        mvgpu_start=time.perf_counter_ns()
+        mvgpu_start_event.record()
         dummy_hidden_states = dummy_hidden_states.cuda()
         # time after put to GPU
-        mvgpu_end=time.perf_counter_ns()
-        load_input_times.append(mvgpu_end-mvgpu_start)
+        mvgpu_end_event.record()
+        torch.cuda.synchronize()
+        load_input_times.append((mvgpu_start_event.elapsed_time(mvgpu_end_event)) * 1e6)
 
         # time before running model
-        model_start=time.perf_counter_ns()
+        model_start_event.record()
         output = stepc.stepC_output(dummy_hidden_states)
         # time after running model
-        model_end=time.perf_counter_ns()
-        run_times.append(model_end-model_start)
+        model_end_event.record()
+        torch.cuda.synchronize()
+        run_times.append((model_start_event.elapsed_time(model_end_event)) * 1e6)
 
         # time before transfer to CPU
-        mvcpu_start=time.perf_counter_ns()
+        mvcpu_start_event.record()
         output.cpu()
         # time after transfer to CPU
-        mvcpu_end=time.perf_counter_ns()
-        output_to_host_times.append(mvcpu_end-mvcpu_start)
+        mvcpu_end_event.record()
+        torch.cuda.synchronize()
+        output_to_host_times.append((mvcpu_start_event.elapsed_time(mvcpu_end_event)) * 1e6)
 
     # total end time for throughput calculation
-    end=time.perf_counter_ns()
-    time_elapsed=end-start
+    total_end_event.record()
+    torch.cuda.synchronize()
+    time_elapsed=(total_start_event.elapsed_time(total_end_event)) * 1e6
     throughput = (1000 * bsize) / (time_elapsed / 1000000000)
     print("Throughput with batch size", bsize, "(queries/s):", throughput)
 

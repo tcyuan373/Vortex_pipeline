@@ -122,8 +122,11 @@ if __name__=="__main__":
     embeddings_to_host_times = []
     hidden_states_to_host_times = []
 
+    total_start_event = torch.cuda.Event(enable_timing=True)
+    total_end_event = torch.cuda.Event(enable_timing=True)
+
     # total start time for throughput calculation
-    start=time.perf_counter_ns()
+    total_start_event.record()
 
     for i in range(1000):
         # CUDA events for accurate profiling
@@ -176,8 +179,10 @@ if __name__=="__main__":
         hidden_states_to_host_times.append((hstates_start_event.elapsed_time(hstates_end_event)) * 1e6)
 
     # total end time for throughput calculation
-    end=time.perf_counter_ns()
-    time_elapsed=end-start
+    total_end_event.record()
+    torch.cuda.synchronize()
+
+    time_elapsed=(total_start_event.elapsed_time(total_end_event)) * 1e6
     throughput = (1000 * batch_size) / (time_elapsed / 1000000000)
     print("Throughput with batch size", batch_size, "(queries/s):", throughput)
 
