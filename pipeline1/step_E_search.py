@@ -1,4 +1,5 @@
 import csv
+import json
 import time
 
 from flmr import search_custom_collection, create_searcher
@@ -6,14 +7,13 @@ import torch
 import random
 
 
-bsize = 8
 late_interaction_size = 128
 
 
 class StepE:
     def __init__(self, 
-                 index_root_path='.',
-                 index_experiment_name='EVQA_test_split',
+                 index_root_path='/mydata/EVQA/index',
+                 index_experiment_name='EVQA_train_split',
                  index_name='EVQA_PreFLMR_ViT-L',
                  ):
         self.searcher = create_searcher(
@@ -33,18 +33,13 @@ class StepE:
             searcher=self.searcher,
             queries=custom_quries,
             query_embeddings=query_embeddings,
-            num_document_to_retrieve=2, # how many documents to retrieve for each query
-            centroid_search_batch_size=bsize,
+            num_document_to_retrieve=5, # how many documents to retrieve for each query
+            centroid_search_batch_size=32,
         )
         return ranking.todict()
 
 
 if __name__=='__main__':
-    dummy_dict = {
-        'question_id': [0],
-        'question': ["test sentence test sentece, this this, 100"],
-    }
-
     stepE = StepE()
 
     # GPU memory usage after loading model
@@ -54,24 +49,45 @@ if __name__=='__main__':
     load_input_times = []
     run_times = []
 
+    embeddings = torch.load("qembeds.pt")
+    with open("queries.json", "r") as f:
+        queries = json.load(f)
+
     # CUDA events for accurate profiling
     total_start_event = torch.cuda.Event(enable_timing=True)
     total_end_event = torch.cuda.Event(enable_timing=True)
     # total start time for throughput calculation
     total_start_event.record()
 
-    for i in range(100):
+    total_runs = 100
+    batch_size = 10
+    i = 0
+    keys = list(queries.keys())
+    num_keys = len(keys)
+    for _ in range(0, total_runs):
+        query_embed_list = []
+        query = {
+            'question_id': [],
+            'question': [],
+        }
+        for j in range(10):
+            cur_key = keys[i%num_keys]
+            query['question_id'].append(cur_key)
+            query['question'].append(queries[cur_key])
+            query_embed_list.append(embeddings[i%num_keys])
+            i+=1
+
         # CUDA events for accurate profiling
         mvgpu_start_event = torch.cuda.Event(enable_timing=True)
         mvgpu_end_event = torch.cuda.Event(enable_timing=True)
         model_start_event = torch.cuda.Event(enable_timing=True)
         model_end_event = torch.cuda.Event(enable_timing=True)
 
-        dummy_query_embed = torch.randn(bsize, random.randint(500, 1000), late_interaction_size)
+        query_embed = torch.stack(query_embed_list, dim=0)
 
         # time before put to GPU
         mvgpu_start_event.record()
-        dummy_query_embed = dummy_query_embed.cuda()
+        query_embed = query_embed.cuda()
         # time after put to GPU
         mvgpu_end_event.record()
         torch.cuda.synchronize()
@@ -79,7 +95,7 @@ if __name__=='__main__':
 
         # time before running model
         model_start_event.record()
-        ranking_dict = stepE.step_E_search(dummy_dict, dummy_query_embed)
+        ranking_dict = stepE.step_E_search(query, query_embed)
         # time after running model
         model_end_event.record()
         torch.cuda.synchronize()
@@ -89,8 +105,8 @@ if __name__=='__main__':
     total_end_event.record()
     torch.cuda.synchronize()
     time_elapsed=(total_start_event.elapsed_time(total_end_event)) * 1e6
-    throughput = (100 * bsize) / (time_elapsed / 1000000000)
-    print("Throughput with batch size", bsize, "(queries/s):", throughput)
+    throughput = (total_runs * batch_size) / (time_elapsed / 1000000000)
+    print("Throughput with batch size", batch_size, "(queries/s):", throughput)
 
     runtimes_file = 'step_E_runtime.csv'
     gpu_transfer = 'step_E_transfer_to_gpu.csv'
