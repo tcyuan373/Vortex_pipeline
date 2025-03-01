@@ -4,7 +4,6 @@ import time
 
 from flmr import search_custom_collection, create_searcher
 import torch
-import random
 
 
 late_interaction_size = 128
@@ -34,7 +33,7 @@ class StepE:
             queries=custom_quries,
             query_embeddings=query_embeddings,
             num_document_to_retrieve=5, # how many documents to retrieve for each query
-            centroid_search_batch_size=32,
+            centroid_search_batch_size=None,
         )
         return ranking.todict()
 
@@ -54,23 +53,25 @@ if __name__=='__main__':
         queries = json.load(f)
 
     # CUDA events for accurate profiling
-    total_start_event = torch.cuda.Event(enable_timing=True)
-    total_end_event = torch.cuda.Event(enable_timing=True)
+    # total_start_event = torch.cuda.Event(enable_timing=True)
+    # total_end_event = torch.cuda.Event(enable_timing=True)
     # total start time for throughput calculation
-    total_start_event.record()
+    total_start_event = time.perf_counter_ns()
 
     total_runs = 100
-    batch_size = 10
+    batch_size = 16
     i = 0
     keys = list(queries.keys())
+
     num_keys = len(keys)
+
     for _ in range(0, total_runs):
         query_embed_list = []
         query = {
             'question_id': [],
             'question': [],
         }
-        for j in range(10):
+        for j in range(batch_size):
             cur_key = keys[i%num_keys]
             query['question_id'].append(cur_key)
             query['question'].append(queries[cur_key])
@@ -78,45 +79,45 @@ if __name__=='__main__':
             i+=1
 
         # CUDA events for accurate profiling
-        mvgpu_start_event = torch.cuda.Event(enable_timing=True)
-        mvgpu_end_event = torch.cuda.Event(enable_timing=True)
-        model_start_event = torch.cuda.Event(enable_timing=True)
-        model_end_event = torch.cuda.Event(enable_timing=True)
+        # mvgpu_start_event = torch.cuda.Event(enable_timing=True)
+        # mvgpu_end_event = torch.cuda.Event(enable_timing=True)
+        # model_start_event = torch.cuda.Event(enable_timing=True)
+        # model_end_event = torch.cuda.Event(enable_timing=True)
 
         query_embed = torch.stack(query_embed_list, dim=0)
 
         # time before put to GPU
-        mvgpu_start_event.record()
+        # mvgpu_start_event.record()
         query_embed = query_embed.cuda()
         # time after put to GPU
-        mvgpu_end_event.record()
-        torch.cuda.synchronize()
-        load_input_times.append((mvgpu_start_event.elapsed_time(mvgpu_end_event)) * 1e6)
+        # mvgpu_end_event.record()
+        # torch.cuda.synchronize()
+        # load_input_times.append((mvgpu_start_event.elapsed_time(mvgpu_end_event)) * 1e6)
 
         # time before running model
-        model_start_event.record()
+        model_start_event = time.perf_counter_ns()
         ranking_dict = stepE.step_E_search(query, query_embed)
         # time after running model
-        model_end_event.record()
-        torch.cuda.synchronize()
-        run_times.append((model_start_event.elapsed_time(model_end_event)) * 1e6)
+        model_end_event = time.perf_counter_ns()
+        # torch.cuda.synchronize()
+        run_times.append(model_end_event - model_start_event)
 
     # total end time for throughput calculation
-    total_end_event.record()
-    torch.cuda.synchronize()
-    time_elapsed=(total_start_event.elapsed_time(total_end_event)) * 1e6
+    total_end_event = time.perf_counter_ns()
+    # torch.cuda.synchronize()
+    time_elapsed=(total_end_event - total_start_event)
     throughput = (total_runs * batch_size) / (time_elapsed / 1000000000)
     print("Throughput with batch size", batch_size, "(queries/s):", throughput)
 
     runtimes_file = 'step_E_runtime.csv'
-    gpu_transfer = 'step_E_transfer_to_gpu.csv'
+    # gpu_transfer = 'step_E_transfer_to_gpu.csv'
 
     with open(runtimes_file, mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(run_times)
 
-    with open(gpu_transfer, mode='w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(load_input_times)
+    # with open(gpu_transfer, mode='w', newline='') as file:
+    #     writer = csv.writer(file)
+    #     writer.writerow(load_input_times)
 
-    print(ranking_dict)
+    # print(ranking_dict)
