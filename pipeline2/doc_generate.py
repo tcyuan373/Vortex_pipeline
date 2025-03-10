@@ -14,7 +14,7 @@ import transformers
 
 class DocGenerateUDL():
      def load_llm(self,):
-          model_id = "meta-llama/Meta-Llama-3-8B-Instruct"
+          model_id = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
           self.pipeline = transformers.pipeline(
                "text-generation",
                model=model_id,
@@ -48,7 +48,7 @@ class DocGenerateUDL():
           tmp_res = self.pipeline(
                messages,
                max_new_tokens=256,
-               eos_token_id=self.terminators,
+               # eos_token_id=self.terminators,
                do_sample=True,
                temperature=0.6,
                top_p=0.9,
