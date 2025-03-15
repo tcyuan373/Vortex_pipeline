@@ -104,12 +104,18 @@ if __name__=="__main__":
     img_root = './images'
     img_paths = [os.path.join(img_root, item) for item in os.listdir(img_root)]
     list_of_images = []
-    for img_path in img_paths:
-        image = Image.open(img_path).convert("RGB")
-        list_of_images.append(image)
+    for i in range(9):
+        for img_path in img_paths:
+            image = Image.open(img_path).convert("RGB")
+            list_of_images.append(image)
+
+    list_of_images = list_of_images[:8]
     batch_size = len(list_of_images)
+
+    print(f"Got batch size of:{batch_size}")
     image_processor = AutoImageProcessor.from_pretrained('openai/clip-vit-large-patch14')
 
+    total_runs = 1000
     stepb = StepB()
     stepb.load_model_cuda()
 
@@ -128,7 +134,7 @@ if __name__=="__main__":
     # total start time for throughput calculation
     total_start_event.record()
 
-    for i in range(1000):
+    for i in range(total_runs):
         # CUDA events for accurate profiling
         mvgpu_start_event = torch.cuda.Event(enable_timing=True)
         mvgpu_end_event = torch.cuda.Event(enable_timing=True)
@@ -183,7 +189,7 @@ if __name__=="__main__":
     torch.cuda.synchronize()
 
     time_elapsed=(total_start_event.elapsed_time(total_end_event)) * 1e6
-    throughput = (1000 * batch_size) / (time_elapsed / 1000000000)
+    throughput = (total_runs * batch_size) / (time_elapsed / 1000000000)
     print("Throughput with batch size", batch_size, "(queries/s):", throughput)
 
     runtimes_file = 'step_B_runtime.csv'
