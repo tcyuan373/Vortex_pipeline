@@ -27,6 +27,56 @@ import time
 from torch.utils.data import DataLoader
 
 
+def tokenize_inputs(examples, query_tokenizer, image_processor):
+    encoding = query_tokenizer(examples["text_sequence"])
+    examples["input_ids"] = encoding["input_ids"]
+    examples["attention_mask"] = encoding["attention_mask"]
+
+    pixel_values = []
+    for img_path in examples["img_path"]:
+
+        if img_path is None:
+            image = Image.new("RGB", (336, 336), color='black')
+        else:
+            image = Image.open(img_path).convert("RGB")
+        
+        encoded = image_processor(image, return_tensors="pt")
+        pixel_values.append(encoded.pixel_values)
+
+    pixel_values = torch.stack(pixel_values, dim=0)
+    examples["pixel_values"] = pixel_values
+    return examples
+    
+    
+def prepare_inputs(sample):
+    sample = EasyDict(sample)
+
+    module = EasyDict(
+        {"type": "QuestionInput", "option": "default", "separation_tokens": {"start": "", "end": ""}}
+    )
+
+    instruction = sample.instruction.strip()
+    if instruction[-1] != ":":
+        instruction = instruction + ":"
+    instruction = instruction.replace(":", flmr_config.mask_instruction_token)
+    #random_instruction = random.choice(instructions)
+    text_sequence = " ".join(
+        [instruction]
+        + [module.separation_tokens.start]
+        + [sample.question]
+        + [module.separation_tokens.end]
+    )
+
+    sample["text_sequence"] = text_sequence
+
+    return sample    
+
+
+def add_path_prefix_in_img_path(example, prefix):
+    if example["img_path"] != None:
+        example["img_path"] = os.path.join(prefix, example["img_path"])
+    return example
+
 
 
 def main():
@@ -44,25 +94,34 @@ def main():
     use_gpu             = True
     nbits               = 8
     query_batch_size    = 8
+    BS = 1
+    num_batches = 100
+    use_split = 'train'
     
-    ds = load_dataset('parquet', data_files ={  'train' :ds_dir + '/train-00000-of-00001.parquet',
-                                                'test'  : ds_dir + '/test-00000-of-00001-2.parquet'})
+    ds = load_dataset('parquet', data_files ={  
+                                            'train' :ds_dir + '/train-00000-of-00001.parquet',
+                                            'test'  : ds_dir + '/test-00000-of-00001-2.parquet'
+                                            })[use_split].select([i for i in range(166000, 166000+BS*num_batches, 1)])
     print("========= Loading dataset =========")
     print(ds)
-
-    def add_path_prefix_in_img_path(example, prefix):
-        if example["img_path"] != None:
-            example["img_path"] = os.path.join(prefix, example["img_path"])
-        return example
-
-    ds = ds.map(add_path_prefix_in_img_path, fn_kwargs={"prefix": image_root_dir})
-
-    use_split = 'train'
-
+    
     print("========= Data Summary =========")
     print("Number of examples:", len(ds))
+    
+    
+    ds = ds.map(add_path_prefix_in_img_path, fn_kwargs={"prefix": image_root_dir})
+    ds = ds.map(add_path_prefix_in_img_path, fn_kwargs={"prefix": image_root_dir})
+    ds = ds.map(prepare_inputs)
+    # Tokenize and prepare image pixels for input
+    ds = ds.map(
+        tokenize_inputs,
+        fn_kwargs={"query_tokenizer": query_tokenizer, "image_processor": image_processor},
+        batched=True,
+        batch_size=8,
+        num_proc=16,
+    )
 
-
+    
     print("========= Loading pretrained model =========")
     flmr_config = FLMRConfig.from_pretrained(checkpoint_path)
     query_tokenizer = FLMRQueryEncoderTokenizer.from_pretrained(checkpoint_path,
@@ -80,69 +139,8 @@ def main():
     flmr_model = flmr_model.to("cuda")
     image_processor = AutoImageProcessor.from_pretrained(image_processor_name)
 
-    print("========= Preparing query input =========")
-    
-    def prepare_inputs(sample):
-        sample = EasyDict(sample)
-
-        module = EasyDict(
-            {"type": "QuestionInput", "option": "default", "separation_tokens": {"start": "", "end": ""}}
-        )
-
-        instruction = sample.instruction.strip()
-        if instruction[-1] != ":":
-            instruction = instruction + ":"
-        instruction = instruction.replace(":", flmr_config.mask_instruction_token)
-        #random_instruction = random.choice(instructions)
-        text_sequence = " ".join(
-            [instruction]
-            + [module.separation_tokens.start]
-            + [sample.question]
-            + [module.separation_tokens.end]
-        )
-
-        sample["text_sequence"] = text_sequence
-
-        return sample
-    
-
-    # Prepare inputs using the same configuration as in the original FLMR paper
-
-    def tokenize_inputs(examples, query_tokenizer, image_processor):
-        encoding = query_tokenizer(examples["text_sequence"])
-        examples["input_ids"] = encoding["input_ids"]
-        examples["attention_mask"] = encoding["attention_mask"]
-
-        pixel_values = []
-        for img_path in examples["img_path"]:
-
-            if img_path is None:
-                image = Image.new("RGB", (336, 336), color='black')
-            else:
-                image = Image.open(img_path).convert("RGB")
-            
-            encoded = image_processor(image, return_tensors="pt")
-            pixel_values.append(encoded.pixel_values)
-
-        pixel_values = torch.stack(pixel_values, dim=0)
-        examples["pixel_values"] = pixel_values
-        return examples
-    ds = ds.map(add_path_prefix_in_img_path, fn_kwargs={"prefix": image_root_dir})
-    ds = ds.map(prepare_inputs)
-    # Tokenize and prepare image pixels for input
-    ds = ds.map(
-        tokenize_inputs,
-        fn_kwargs={"query_tokenizer": query_tokenizer, "image_processor": image_processor},
-        batched=True,
-        batch_size=8,
-        num_proc=16,
-    )
-
-    BS = 1
-    num_batches = 100
-    
     # using torch loader
-    ds = ds[use_split].select([i for i in range(166000, 166000+BS*num_batches, 1)])
+    
     ds.set_format(
         type="torch", 
         columns=["input_ids", "attention_mask", "pixel_values", "text_sequence", "question_id", "question"]
