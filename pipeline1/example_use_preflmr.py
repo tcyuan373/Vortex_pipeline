@@ -59,7 +59,6 @@ def main():
 
     use_split = 'train'
 
-    ds = ds[use_split].select([i for i in range(8)])
     print("========= Data Summary =========")
     print("Number of examples:", len(ds))
 
@@ -128,7 +127,8 @@ def main():
         pixel_values = torch.stack(pixel_values, dim=0)
         examples["pixel_values"] = pixel_values
         return examples
-
+    ds = ds.map(add_path_prefix_in_img_path, fn_kwargs={"prefix": image_root_dir})
+    ds = ds.map(prepare_inputs)
     # Tokenize and prepare image pixels for input
     ds = ds.map(
         tokenize_inputs,
@@ -139,10 +139,10 @@ def main():
     )
 
     BS = 1
-    num_batches = 1000
+    num_batches = 100
     
     # using torch loader
-    ds = ds[use_split].select([i for i in range(0, BS*num_batches, 1)])
+    ds = ds[use_split].select([i for i in range(166000, 166000+BS*num_batches, 1)])
     ds.set_format(
         type="torch", 
         columns=["input_ids", "attention_mask", "pixel_values", "text_sequence", "question_id", "question"]
@@ -165,10 +165,11 @@ def main():
     )
     
     start = time.perf_counter()
-    
+    rumtimes = []    
     for batch_idx, batch in enumerate(loader):
         if batch_idx >= num_batches:
             break
+        cur_start = time.perf_counter()
         # prepare input for FLMR
         input_ids = torch.LongTensor(batch["input_ids"]).to("cuda")
         attention_mask = torch.LongTensor(batch["attention_mask"]).to("cuda")
@@ -195,7 +196,9 @@ def main():
         )
 
         ranking_dict = ranking.todict()
-
+        end_time = time.perf_counter()
+        run_times.append((end_time - cur_start)* 1000)
+    print(run_times)
         
         
 
