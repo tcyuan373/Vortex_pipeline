@@ -14,10 +14,13 @@ model_ckpt = "papluca/xlm-roberta-base-language-detection"
 tokenizer = AutoTokenizer.from_pretrained(model_ckpt)
 model = AutoModelForSequenceClassification.from_pretrained(model_ckpt).to('cuda')
 
-bsize = 16
+bsize = 8
 run_times = []
 
-start = time.perf_counter_ns()
+total_start_event = torch.cuda.Event(enable_timing=True)
+total_end_event = torch.cuda.Event(enable_timing=True)
+
+total_start_event.record()
 
 for i in range(1000):
     text = []
@@ -26,17 +29,21 @@ for i in range(1000):
 
     inputs = tokenizer(text, padding=True, truncation=True, return_tensors="pt").to('cuda')
 
-    model_start_event = time.perf_counter_ns()
+    model_start_event = torch.cuda.Event(enable_timing=True)
+    model_end_event = torch.cuda.Event(enable_timing=True)
+
+    model_start_event.record()
     with torch.no_grad():
         logits = model(**inputs).logits
-    model_end_event = time.perf_counter_ns()
-
-    run_times.append(model_end_event - model_start_event)
+    model_end_event.record()
+    torch.cuda.synchronize()
+    run_times.append((model_start_event.elapsed_time(model_end_event)) * 1e6)
 
     preds = torch.softmax(logits, dim=-1)
 
-end = time.perf_counter_ns()
-time_elapsed=(end - start)
+total_end_event.record()
+torch.cuda.synchronize()
+time_elapsed=(total_start_event.elapsed_time(total_end_event)) * 1e6
 throughput = (1000 * bsize) / (time_elapsed / 1000000000)
 print("Throughput with batch size", bsize, "(queries/s):", throughput)
 
