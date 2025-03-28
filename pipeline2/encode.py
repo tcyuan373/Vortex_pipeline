@@ -40,10 +40,23 @@ class EncoderUDL():
 
 if __name__ == "__main__":
      udl = EncoderUDL()
-     query_list = ["What is the capital of France?", "What is the capital of USA?"]
+
+     query_path = '/mydata/msmarco/msmarco_3_clusters/query.csv'
+     with open(query_path, mode='r') as file:
+          csv_reader = csv.reader(file)
+          data = [line for line in csv_reader]
+
+     data = [' '.join(line) for line in data]
 
      run_times = []
+     bsize = 8
+     j = 0
      for i in range(1000):
+          query_list = []
+          for k in range(bsize):
+               query_list.append(data[j % len(data)])
+               j+=1
+
           model_start_event = torch.cuda.Event(enable_timing=True)
           model_end_event = torch.cuda.Event(enable_timing=True)
 
