@@ -29,11 +29,11 @@ class EncoderUDL():
           )
           self.centroids_embeddings = np.array([])
           self.emb_dim = 384
-     
+
      def encode(self,query_list):
           query_embeddings = self.encoder.encode(query_list)
           return query_embeddings
-        
+
      def __del__(self):
           pass
 

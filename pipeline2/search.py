@@ -8,7 +8,7 @@ import csv
 
 class SearchUDL():
 
-     def __init__(self, cluster_dir = "./miniset", index_type='Flat', nprobe=1):
+     def __init__(self, cluster_dir = "/mydata/msmarco/msmarco_3_clusters", index_type='Flat', nprobe=1):
           self.index_type = index_type
           self.nprobe = nprobe
           self.index = None
@@ -27,19 +27,22 @@ class SearchUDL():
 
      # Note that in this implementation, use a undistributed IVF Flat search
      def build_ivf_index(self, nlist=3):
-          dim = self.cluster_embeddings.shape[1]  
-          res = faiss.StandardGpuResources()  
+          index = faiss.read_index('/mydata/msmarco/msmarco.index')
+          gpu_res = faiss.StandardGpuResources()
+          self.index = faiss.index_cpu_to_gpu(gpu_res, 0, index)
+          # dim = self.cluster_embeddings.shape[1]  
+          # res = faiss.StandardGpuResources()  
 
-          self.index = faiss.GpuIndexIVFFlat(
-               res,  
-               dim,  
-               nlist,  
-               faiss.METRIC_L2, 
-               faiss.GpuIndexIVFFlatConfig()
-          )
+          # self.index = faiss.GpuIndexIVFFlat(
+          #      res,  
+          #      dim,  
+          #      nlist,  
+          #      faiss.METRIC_L2, 
+          #      faiss.GpuIndexIVFFlatConfig()
+          # )
 
-          self.index.train(self.cluster_embeddings)
-          self.index.add(self.cluster_embeddings) 
+          # self.index.train(self.cluster_embeddings)
+          # self.index.add(self.cluster_embeddings) 
      
      def search_queries(self, query_embeddings, top_k=5):
           distances, indices = self.index.search(query_embeddings, top_k)
@@ -48,29 +51,38 @@ class SearchUDL():
 
 def load_query_embeddings(file_path):
     df = pd.read_csv(file_path)
+    print(df.shape)
     return df.values.astype(np.float32)  
 
 
-
-
 if __name__ == "__main__":
-     dataset_dir = "miniset"
+     dataset_dir = "/mydata/msmarco/msmarco_3_clusters"
      query_emb_file = os.path.join(dataset_dir, "query_emb.csv")
      cluster_dir = dataset_dir 
      searcher = SearchUDL(cluster_dir = cluster_dir)
      query_embeddings = load_query_embeddings(query_emb_file)
+     num_queries = query_embeddings.shape[0]
 
      run_times = []
-     for i in range(100):
+     bsize = 1
+     k = 0
+     for i in range(10):
+          batch = []
+          for j in range(bsize):
+               batch.append(query_embeddings[k % num_queries])
+               k+=1
+
+          batch_df = pd.DataFrame(batch)
+
           model_start_event = torch.cuda.Event(enable_timing=True)
           model_end_event = torch.cuda.Event(enable_timing=True)
 
           # time before running model
           model_start_event.record()
 
-          distances, indices = searcher.search_queries(query_embeddings, top_k=5)
-        #   print(f"distances.shape: {distances.shape}")
-        #   print(f"indices.shape: {indices.shape}")
+          distances, indices = searcher.search_queries(batch_df, top_k=5)
+          # print(f"distances.shape: {distances.shape}")
+          # print(f"indices.shape: {indices.shape}")
 
           # time after running model
           model_end_event.record()
