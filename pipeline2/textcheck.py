@@ -1,11 +1,12 @@
-from transformers import BartForSequenceClassification, BartTokenizer, pipeline
+# from transformers import BartForSequenceClassification, BartTokenizer, pipeline
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import time
 import torch
 
 def textcheck(premise):
      device = torch.device('cuda')
-     tokenizer = BartTokenizer.from_pretrained('facebook/bart-large-mnli', device_map = device)
-     model = BartForSequenceClassification.from_pretrained('facebook/bart-large-mnli').to('cuda')
+     tokenizer = AutoTokenizer.from_pretrained('SamLowe/roberta-base-go_emotions')
+     model = AutoModelForSequenceClassification.from_pretrained('SamLowe/roberta-base-go_emotions').to('cuda')
 
      # pose sequence as a NLI premise and label (politics) as a hypothesis
      # premise = 'I hate Asians!'
@@ -24,6 +25,12 @@ def textcheck(premise):
      print(f'Probability that the label is true: {true_prob:0.2f}%')
      return true_prob
 
+
+if __name__ == "__main__":
+     # Example usage
+     for i in range(100):
+          premise = "I love programming in Python!"
+          textcheck(premise)
 
 
 
