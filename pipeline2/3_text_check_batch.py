@@ -51,19 +51,21 @@ if __name__ == "__main__":
 
     iterator = iter(data)
 
-    bsize = 4
+    bsize = 2
     run_times = []
 
-    for i in range(1000):
+    for i in range(500):
         batch_premise = []
         for j in range(bsize):
             batch_premise.append(next(iterator))
         textcheck(batch_premise, run_times)
+    throughput = (bsize * len(run_times)) / (sum(run_times) / 1e9)
+    print(f"batch size {bsize}, throughput is {throughput}")
+    avg_latency = int(sum(run_times) / len(run_times))
+    print(f"avg latency is {avg_latency} ns")
 
-    runtimes_file = 'text_check_batch_runtime.csv'
+    runtimes_file = 'roberta_tp' + str(throughput)+ '_text_check_batch' + str(bsize) + '_runtime.csv'
 
     with open(runtimes_file, mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(run_times)
-    throughput = (bsize * len(run_times)) / (sum(run_times) / 1e9)
-    print(f"throughput is {throughput}")

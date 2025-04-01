@@ -40,8 +40,8 @@ def textcheck(batch_premise, run_times):
 
 if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    tokenizer = AutoTokenizer.from_pretrained('joeddav/distilbert-base-uncased-go-emotions-student')
-    model = AutoModelForSequenceClassification.from_pretrained('joeddav/distilbert-base-uncased-go-emotions-student').to('cuda')
+    tokenizer = AutoTokenizer.from_pretrained('bhadresh-savani/bert-base-go-emotion')
+    model = AutoModelForSequenceClassification.from_pretrained('bhadresh-savani/bert-base-go-emotion').to('cuda')
 
 
     file_path = '/mydata/msmarco/msmarco_3_clusters/doc_list.pkl'
@@ -60,7 +60,7 @@ if __name__ == "__main__":
             batch_premise.append(next(iterator))
         textcheck(batch_premise, run_times)
 
-    runtimes_file = 'text_check_batch_runtime.csv'
+    runtimes_file = 'bert' + str(bsize) + 'text_check_batch_runtime.csv'
 
     with open(runtimes_file, mode='w', newline='') as file:
         writer = csv.writer(file)
