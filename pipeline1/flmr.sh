@@ -4,14 +4,14 @@
 #faiss gpu
 # conda install -c pytorch/label/nightly -c nvidia faiss-gpu
 #torch and dependencies
-pip3 install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+pip install --user torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 pip install --user ujson gitpython easydict ninja datasets transformers pybind11
 
 #FLMR
 git clone https://github.com/LinWeizheDragon/FLMR.git
 cd FLMR
-pip install --user -e . 
+pip install --user . 
 #ColBERT
 cd third_party/ColBERT
-pip install  --user -e .
+pip install  --user .
 

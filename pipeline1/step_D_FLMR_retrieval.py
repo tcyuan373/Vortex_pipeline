@@ -131,7 +131,7 @@ class step_D_transformer_mapping:
         input_ids,                              # from Step A
         text_embeddings,                        # from Step A
         text_encoder_hidden_states,             # from Step A        
-        vision_embeddings,                      # from Step B
+        vision_embeddings,                      # from Step B B*256*1024
         transformer_mapping_input_features,     # from Step C
     ):
         #preparing mask

@@ -11,9 +11,9 @@ from model import SenseVoiceSmall
 import pickle
 import torch
 import numpy as np
+import csv
 
-# audio_file_path = 
-pkl_dir = "/mnt/nvme0/vortex_pipeline1/queries_audio1.pkl"
+pkl_dir = "queries_audio1.pkl"
 
 model_dir = "iic/SenseVoiceSmall"
 m, kwargs = SenseVoiceSmall.from_pretrained(model=model_dir, device="cuda:0")
@@ -37,31 +37,27 @@ audio_sample_list = load_audio_text_image_video(
 )
 
 
-BS = 8
+batch_size = 32
 total_runs = 1000
 list_of_runtimes = []
 batch_audio_sample = []
 
 
-
-for i in range(total_runs):
-    if i == 1:
-        start = time.perf_counter()
-        
+for i in range(batch_size * total_runs):
     curr_array = list_np_waveform[i%(len(list_np_waveform))][-1]
     if len(curr_array) <= 200000:
         batch_audio_sample.append(curr_array)
-    
-        if (i+1) % BS == 0:
+
+        if (i+1) % batch_size == 0:
             # audio_sample_list = torch.from_numpy(np.array(batch_audio_sample))
-        # raw_queries = list_np_waveform[i][0]
-        # print(f"For item {i}, the raw text: \n {raw_queries}")
+            # raw_queries = list_np_waveform[i][0]
+            # print(f"For item {i}, the raw text: \n {raw_queries}")
             # audio_sample_list = torch.from_numpy(list_np_waveform[i][-1])
             speech, speech_lengths = extract_fbank(
                 batch_audio_sample, data_type=kwargs.get("data_type", "sound"), frontend=frontend
             )
             
-            start_time = time.perf_counter()
+            start_time = time.perf_counter_ns()
             res = m.inference(
                 data_in=speech,
                 data_lengths=speech_lengths,
@@ -70,7 +66,9 @@ for i in range(total_runs):
                 ban_emo_unk=True,
                 **kwargs,
             )
-            list_of_runtimes.append(time.perf_counter() - start_time)
+            end_time = time.perf_counter_ns()
+            list_of_runtimes.append(end_time - start_time)
+
             # import pdb; pdb.set_trace()
             text_list = []
             for idx in range(len(res[0])):
@@ -92,6 +90,14 @@ for i in range(total_runs):
             )
         text = rich_transcription_postprocess(res[0][0]["text"])
         # print(f"For single item {i}: \n {text}")
-        
-print(f"List of runtime: {list_of_runtimes}")
-print(f"avg runetime: {np.mean(np.array(list_of_runtimes[1:]))}")
+
+print(len(list_of_runtimes))
+
+runtimes_file = 'audio_recognition_runtime.csv'
+
+with open(runtimes_file, mode='w', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerow(list_of_runtimes)
+
+# print(f"List of runtime: {list_of_runtimes}")
+# print(f"avg runetime: {np.mean(np.array(list_of_runtimes[1:]))}")
