@@ -38,7 +38,7 @@ if __name__ == "__main__":
     BS      = 128
     
     
-    index_file = "./msmarco_full_passages.index"
+    index_file = "/mydata/EVQA/MSMARCO/msmarco_pq.index"
     query_e_file = "/mydata/EVQA/MSMARCO/ms_macro_1m_queries_embeds.npy"
     # embeddings_file = "/mydata/EVQA/ms_macro_full_passages_embeds.npy"
 
