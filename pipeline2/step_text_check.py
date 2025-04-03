@@ -4,7 +4,7 @@ import csv
 import pickle
 
 def textcheck(batch_premise, run_times):
-    hypothesis = 'harmful.'
+    # hypothesis = 'harmful.' # not used by this model
 
     # Tokenize all premises as a batch
     inputs = tokenizer(batch_premise,
