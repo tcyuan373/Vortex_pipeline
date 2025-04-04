@@ -26,7 +26,7 @@ if __name__ == "__main__":
      list_of_texts = ["I want to kill Asians!",\
                     "This is a hateful statement against a particular group of people.", \
                     "The weather is nice today.", \
-                    "Ching Chong. Fuck Fuck Fuck, shit shit shit", \
+                    "Fuck Fuck Fuck, shit shit shit", \
                     "I think this is a great initiative to support education."]
      textcheck(list_of_texts)
 
