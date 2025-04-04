@@ -3,34 +3,32 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import time
 import torch
 
-def textcheck(premise):
+def textcheck(raw_texts):
+     model_path = "badmatr11x/distilroberta-base-offensive-hateful-speech-text-multiclassification"
      device = torch.device('cuda')
-     tokenizer = AutoTokenizer.from_pretrained('SamLowe/roberta-base-go_emotions')
-     model = AutoModelForSequenceClassification.from_pretrained('SamLowe/roberta-base-go_emotions').to('cuda')
+     tokenizer = AutoTokenizer.from_pretrained(model_path)
+     model = AutoModelForSequenceClassification.from_pretrained(model_path).to('cuda')
 
-     # pose sequence as a NLI premise and label (politics) as a hypothesis
-     # premise = 'I hate Asians!'
-     # premise = 'A new model offers an explanation for how the Galilean satellites formed around the solar system’s largest world.'
-     hypothesis = 'harmful.'
+     encoded_inputs = tokenizer(raw_texts, padding=True, truncation=True, return_tensors='pt').to(device)
+     logits = model(**encoded_inputs)[0]
+     probs = logits.softmax(dim=1)
 
-     # run through model pre-trained on MNLI
-     input_ids = tokenizer.encode(premise, hypothesis, return_tensors='pt').to(device)
-     logits = model(input_ids)[0]
-
-     # we throw away "neutral" (dim 1) and take the probability of
-     # "entailment" (2) as the probability of the label being true 
-     entail_contradiction_logits = logits[:,[0,2]]
-     probs = entail_contradiction_logits.softmax(dim=1)
-     true_prob = probs[:,1].item() * 100
-     print(f'Probability that the label is true: {true_prob:0.2f}%')
-     return true_prob
+     full_probs = probs.detach().cpu()
+     list_of_ids = torch.argmax(full_probs, dim=1).tolist() 
+     list_of_labels = [model.config.id2label[int(idx)] for idx in list_of_ids]
+     print(f"the obtained labels are: {list_of_labels} ")
+     return list_of_labels
 
 
 if __name__ == "__main__":
      # Example usage
-     for i in range(100):
-          premise = "I love programming in Python!"
-          textcheck(premise)
+     # for i in range(100):
+     list_of_texts = ["I want to kill Asians!",\
+                    "This is a hateful statement against a particular group of people.", \
+                    "The weather is nice today.", \
+                    "Ching Chong. Fuck Fuck Fuck, shit shit shit", \
+                    "I think this is a great initiative to support education."]
+     textcheck(list_of_texts)
 
 
 

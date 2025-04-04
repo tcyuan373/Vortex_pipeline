@@ -17,7 +17,7 @@ if __name__ == "__main__":
     ds = load_dataset('parquet', data_files ={  
                                                 'train' : ds_dir + 'train-00000-of-00001.parquet',
                                                 'test'  : ds_dir + 'test-00000-of-00001-2.parquet',
-                                                })[use_split].select(i for i in range(166900, 167000, 1)) 
+                                                })[use_split].select(i for i in range(0, 167000, 1)) 
 
     passage_contents = passage_ds["passage_content"]
     passage_ids = passage_ds["passage_id"]
