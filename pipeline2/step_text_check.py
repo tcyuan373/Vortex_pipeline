@@ -26,16 +26,13 @@ def textcheck(batch_premise, run_times):
     run_times.append((model_start_event.elapsed_time(model_end_event)) * 1e6)
 
     logits = result.logits  # result[0] is now deprecated, use result.logits instead
+    probs = logits.softmax(dim=1)
 
-    # Take only entailment and contradiction logits
-    entail_contradiction_logits = logits[:, [0, 2]]
-    probs = entail_contradiction_logits.softmax(dim=1)
-    true_probs = probs[:, 1] * 100  # Probability of entailment
-
-    # for i, prob in enumerate(true_probs.tolist()):
-    #     print(f'Premise {i+1}: Probability that the label is true: {prob:.2f}%')
-
-    return true_probs.tolist()
+    full_probs = probs.detach().cpu()
+    list_of_ids = torch.argmax(full_probs, dim=1).tolist() 
+    list_of_labels = [model.config.id2label[int(idx)] for idx in list_of_ids]
+    print(f"the obtained labels are: {list_of_labels} ")
+    return list_of_labels
 
 
 if __name__ == "__main__":
@@ -54,7 +51,7 @@ if __name__ == "__main__":
     bsize = 2
     run_times = []
 
-    for i in range(500):
+    for i in range(5):
         batch_premise = []
         for j in range(bsize):
             batch_premise.append(next(iterator))
