@@ -8,11 +8,11 @@ import os
 import argparse
 
 def main(output_dir, pid):
-    d       = 384
-    nb      = 8841823
-    nlist   = 1000
-    m       = 16
-    nbits   = 8
+    # d       = 384
+    # nb      = 8841823
+    # nlist   = 1000
+    # m       = 16
+    # nbits   = 8
     k       = 5
     n_times = 10000
     BS      = 128
@@ -59,8 +59,8 @@ def main(output_dir, pid):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark FAISS IVFPQ search on GPU")
-    parser.add_argument('--output_dir', type=str, default='./', help='Directory to store output CSV (default: ./)')
-    parser.add_argument('--pid', type=int, default=0, help='Process ID to tag the output file (default: 0)')
+    parser.add_argument('output_dir', type=str, help='Directory to store output CSV')
+    parser.add_argument('pid', type=int, help='Process ID to tag the output file (e.g., 0, 1, 2, 3)')
     args = parser.parse_args()
 
     main(args.output_dir, args.pid)

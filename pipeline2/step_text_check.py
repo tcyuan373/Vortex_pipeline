@@ -5,6 +5,10 @@ import csv
 import pickle
 import os
 
+# === Global configuration ===
+BSIZE = 2         # Batch size
+TOTAL_RUNS = 1000    # Number of batches to run
+
 def textcheck(batch_premise, run_times, tokenizer, model, device):
     inputs = tokenizer(batch_premise,
                        return_tensors='pt', padding=True, truncation=True).to(device)
@@ -40,23 +44,22 @@ def main(output_dir, pid):
         data = pickle.load(file)
 
     iterator = iter(data)
-    bsize = 2
     run_times = []
 
-    for _ in range(5):
-        batch_premise = [next(iterator) for _ in range(bsize)]
+    for _ in range(TOTAL_RUNS):
+        batch_premise = [next(iterator) for _ in range(BSIZE)]
         textcheck(batch_premise, run_times, tokenizer, model, device)
 
-    throughput = (bsize * len(run_times)) / (sum(run_times) / 1e9)
+    throughput = (BSIZE * len(run_times)) / (sum(run_times) / 1e9)
     avg_latency = int(sum(run_times) / len(run_times))
 
-    print(f"batch size {bsize}, throughput is {throughput}")
+    print(f"batch size {BSIZE}, throughput is {throughput}")
     print(f"avg latency is {avg_latency} ns")
 
     os.makedirs(output_dir, exist_ok=True)
     runtimes_file = os.path.join(
         output_dir,
-        f'roberta_tp{throughput}_text_check_batch{bsize}_runtime{pid}.csv'
+        f'roberta_tp{throughput}_text_check_batch{BSIZE}_runtime{pid}.csv'
     )
 
     with open(runtimes_file, mode='w', newline='') as file:
@@ -64,9 +67,9 @@ def main(output_dir, pid):
         writer.writerow(run_times)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Run RoBERTa timing benchmark')
-    parser.add_argument('--output_dir', type=str, default='./', help='Directory to store runtime CSV (default: ./)')
-    parser.add_argument('--pid', type=int, default=0, help='Process ID to tag output file (default: 0)')
+    parser = argparse.ArgumentParser(description="Benchmark RoBERTa inference timing")
+    parser.add_argument('output_dir', type=str, help='Directory to store output CSV')
+    parser.add_argument('pid', type=int, help='Process ID to tag the output file (e.g., 0, 1, 2, 3)')
     args = parser.parse_args()
 
     main(args.output_dir, args.pid)
