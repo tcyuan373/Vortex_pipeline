@@ -14,12 +14,18 @@ PID="${1:-000}"
 shift
 MODES=("$@")  # Remaining arguments after PID
 
-# === MIG UUIDs ===
+# === 4 MIG UUIDs ===
+#MIG_UUIDS=(
+#  "MIG-efb9cd1f-5a0f-569b-98b3-d0ea501d8c4e"
+#  "MIG-5dfdb424-8448-5ca7-a15e-75706b8d5ab6"
+#  "MIG-2c1b2fae-443c-5fa4-8530-ee9471c2d057"
+#  "MIG-f845e8ee-9f2a-5a0d-991e-707536011766"
+#)
+
+# == 2MIG setting==
 MIG_UUIDS=(
-  "MIG-efb9cd1f-5a0f-569b-98b3-d0ea501d8c4e"
-  "MIG-5dfdb424-8448-5ca7-a15e-75706b8d5ab6"
-  "MIG-2c1b2fae-443c-5fa4-8530-ee9471c2d057"
-  "MIG-f845e8ee-9f2a-5a0d-991e-707536011766"
+  "MIG-233913d9-81b0-5d34-b353-559b72f50d7a"
+  "MIG-4ee6e6c4-2dc8-5ad9-bbd9-a0425774c477"
 )
 
 # === Optional MIG and thread env setup ===
@@ -46,9 +52,9 @@ mkdir -p ppl2_tcheck ppl2_ivf ppl2_audio ppl2_encode ppl2_lang
 
 # === Batch sizes ===
 TEXTCHECK_BATCHES=(1 2 4 8 16 32 64 128 256)
-IVFPQ_BATCHES=(1 2 4 8 16 32 64 128 256 1024 2048 4096)
+IVFPQ_BATCHES=(1 2 4 8 16 32 64 128 256 512 1024)
 AUDIO_BATCHES=(1 2 4 8 16 32 36 40)
-ENCODE_BATCHES=(1 2 4 8 16 32 64 128 256 512 1024 2048)
+ENCODE_BATCHES=(1 2 4 8 16 32 64 128 256 512 1024)
 LANG_BATCHES=(1 4 8 12 16 20 24 28 32)
 
 # === Run selected benchmarks ===
