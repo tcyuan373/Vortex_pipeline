@@ -82,7 +82,7 @@ def main(output_dir, pid, bsize):
     # === Save latency log ===
     runtimes_file = os.path.join(
         output_dir,
-        f'roberta_tp{throughput:.2f}_text_check_batch{bsize}_runtime{pid}.csv'
+        f'text_check_batch{bsize}_runtime{pid}_tp{throughput:.2f}.csv'
     )
     with open(runtimes_file, mode='w', newline='') as file:
         writer = csv.writer(file)

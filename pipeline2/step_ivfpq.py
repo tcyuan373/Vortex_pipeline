@@ -69,7 +69,7 @@ def main(output_dir, pid, bsize):
 
     # === Save latency log ===
     os.makedirs(output_dir, exist_ok=True)
-    latency_file = os.path.join(output_dir, f"ivfpq_tp{throughput:.2f}_batch{bsize}_runtime{pid}.csv")
+    latency_file = os.path.join(output_dir, f"ivfpq_batch{bsize}_runtime{pid}_tp{throughput:.2f}.csv")
     with open(latency_file, mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow([int((e - s) * 1e9) for s, e in zip(start_list, end_list)])
