@@ -1,0 +1,3 @@
+[submodule "pipeline2/SenseVoice"]
+	path = pipeline2/SenseVoice
+	url = https://github.com/aliciayuting/SenseVoice.git
