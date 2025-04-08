@@ -1,68 +1,66 @@
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-import torch
+import numpy as np
+import faiss
+from tqdm import tqdm
+import time
 import csv
-import pickle
+import torch
+import os
+import argparse
 
-def textcheck(batch_premise, run_times):
-    # hypothesis = 'harmful.' # not used by this model
+def main(output_dir, pid):
+    d       = 384
+    nb      = 8841823
+    nlist   = 1000
+    m       = 16
+    nbits   = 8
+    k       = 5
+    n_times = 10000
+    BS      = 128
 
-    # Tokenize all premises as a batch
-    inputs = tokenizer(batch_premise,
-                       return_tensors='pt', padding=True, truncation=True).to(device)
+    index_file     = "/mydata/EVQA/MSMARCO/msmarco_pq.index"
+    query_e_file   = "/mydata/EVQA/MSMARCO/ms_macro_1m_queries_embeds.npy"
 
-    model_start_event = torch.cuda.Event(enable_timing=True)
-    model_end_event = torch.cuda.Event(enable_timing=True)
+    # Load index and move to GPU
+    cpu_index = faiss.read_index(index_file)
+    res = faiss.StandardGpuResources()
+    gpu_index = faiss.index_cpu_to_gpu(res, 0, cpu_index)
+    gpu_index.nprobe = 10
 
-    # time before running model
-    model_start_event.record()
+    # Load queries
+    query_vector = np.load(query_e_file)
+    print("Query shape:", query_vector.shape)
 
-    # Forward pass
-    with torch.no_grad():
-        result = model(**inputs)
+    # Benchmark
+    start_list = []
+    end_list = []
 
-    # time after running model
-    model_end_event.record()
-    torch.cuda.synchronize()
-    run_times.append((model_start_event.elapsed_time(model_end_event)) * 1e6)
+    start = time.perf_counter()
+    for i in tqdm(range(n_times)):
+        start_list.append(time.perf_counter())
+        _, _ = gpu_index.search(query_vector[i:(i+BS), :], k)
+        torch.cuda.synchronize()
+        end_list.append(time.perf_counter())
+    end = time.perf_counter()
 
-    logits = result.logits  # result[0] is now deprecated, use result.logits instead
-    probs = logits.softmax(dim=1)
+    total_queries = n_times * BS
+    throughput = total_queries / (end - start)
+    print(f"Batch size {BS}, throughput: {throughput} queries/sec")
 
-    full_probs = probs.detach().cpu()
-    list_of_ids = torch.argmax(full_probs, dim=1).tolist() 
-    list_of_labels = [model.config.id2label[int(idx)] for idx in list_of_ids]
-    print(f"the obtained labels are: {list_of_labels} ")
-    return list_of_labels
+    runtime_ns = [int((end - start) * 1e9) for start, end in zip(start_list, end_list)]
+    avg_latency_ns = int(np.mean(runtime_ns))
+    print(f"Average latency per batch: {avg_latency_ns} ns")
 
+    # Save runtimes
+    os.makedirs(output_dir, exist_ok=True)
+    filename = os.path.join(output_dir, f"ivfpq_tp{throughput:.2f}_batch{BS}_runtime{pid}.csv")
+    with open(filename, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(runtime_ns)
 
 if __name__ == "__main__":
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    tokenizer = AutoTokenizer.from_pretrained('badmatr11x/distilroberta-base-offensive-hateful-speech-text-multiclassification')
-    model = AutoModelForSequenceClassification.from_pretrained('badmatr11x/distilroberta-base-offensive-hateful-speech-text-multiclassification').to('cuda')
+    parser = argparse.ArgumentParser(description="Benchmark FAISS IVFPQ search on GPU")
+    parser.add_argument('--output_dir', type=str, default='./', help='Directory to store output CSV (default: ./)')
+    parser.add_argument('--pid', type=int, default=0, help='Process ID to tag the output file (default: 0)')
+    args = parser.parse_args()
 
-
-    file_path = '/mydata/msmarco/msmarco_3_clusters/doc_list.pkl'
-
-    with open(file_path, 'rb') as file:
-        data = pickle.load(file)
-
-    iterator = iter(data)
-
-    bsize = 2
-    run_times = []
-
-    for i in range(5):
-        batch_premise = []
-        for j in range(bsize):
-            batch_premise.append(next(iterator))
-        textcheck(batch_premise, run_times)
-    throughput = (bsize * len(run_times)) / (sum(run_times) / 1e9)
-    print(f"batch size {bsize}, throughput is {throughput}")
-    avg_latency = int(sum(run_times) / len(run_times))
-    print(f"avg latency is {avg_latency} ns")
-
-    runtimes_file = 'roberta_tp' + str(throughput)+ '_text_check_batch' + str(bsize) + '_runtime.csv'
-
-    with open(runtimes_file, mode='w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(run_times)
+    main(args.output_dir, args.pid)

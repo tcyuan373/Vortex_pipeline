@@ -4,6 +4,25 @@ from tqdm import tqdm
 import time,csv
 import torch
 
+def train_and_save_index_gpu(
+                    d, 
+                    nlist, 
+                    m, 
+                    nbits, 
+                    embeddings, 
+                    ):
+    quantizer = faiss.IndexFlatL2(d) # build a flat (CPU) index
+    cpu_index = faiss.IndexIVFPQ(quantizer, d, nlist, m, nbits)
+    res = faiss.StandardGpuResources()
+    gpu_index = faiss.index_cpu_to_gpu(res, 0, cpu_index)
+    gpu_index.train(embeddings)
+    gpu_index.add(embeddings)
+    
+    print(f"Finished indexing embeddings of number: {gpu_index.ntotal}")
+    cpu_index = faiss.index_gpu_to_cpu(gpu_index)
+    faiss.write_index(cpu_index, "./msmarco_full_passages.index")
+    return gpu_index
+
 
 
 
