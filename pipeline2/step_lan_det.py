@@ -8,7 +8,7 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 # === Global configuration ===
 TOTAL_RUNS = 500  # Number of inference batches to run
-FILE_PATH = '/mydata/msmarco/queries_audio5000.pkl'
+FILE_PATH = '/mydata/msmarco/msmarco_3_clusters/doc_list.pkl'
 
 def language_detection(batch_text, run_times, tokenizer, model, device):
     inputs = tokenizer(batch_text, padding=True, truncation=True, return_tensors="pt").to(device)

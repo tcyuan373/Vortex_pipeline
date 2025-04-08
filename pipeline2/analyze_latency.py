@@ -9,8 +9,7 @@ def analyze_latency(file_path):
     if len(rows) == 0 or len(rows[0]) == 0:
         raise ValueError("Latency CSV is empty or improperly formatted.")
 
-    runtimes_ns = list(map(int, rows[0]))
-
+    runtimes_ns = [int(float(x)) for x in rows[0]][50:]
     avg_ns = sum(runtimes_ns) / len(runtimes_ns)
     max_ns = max(runtimes_ns)
     min_ns = min(runtimes_ns)

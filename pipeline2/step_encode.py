@@ -6,7 +6,8 @@ import torch
 import os
 import warnings
 warnings.filterwarnings("ignore")
-
+import tqdm
+tqdm.tqdm = lambda *args, **kwargs: iter(args[0])
 from FlagEmbedding import FlagModel
 
 # === Global configuration ===
