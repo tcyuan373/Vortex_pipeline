@@ -16,10 +16,10 @@ MODES=("$@")  # Remaining arguments after PID
 
 # === MIG UUIDs ===
 MIG_UUIDS=(
-  "MIG-c7c6f857-9976-5e80-913e-692b1bea3eee"
-  "MIG-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
-  "MIG-11111111-2222-3333-4444-555555555555"
-  "MIG-66666666-7777-8888-9999-aaaaaaaaaaaa"
+  "MIG-efb9cd1f-5a0f-569b-98b3-d0ea501d8c4e"
+  "MIG-5dfdb424-8448-5ca7-a15e-75706b8d5ab6"
+  "MIG-2c1b2fae-443c-5fa4-8530-ee9471c2d057"
+  "MIG-f845e8ee-9f2a-5a0d-991e-707536011766"
 )
 
 # === Optional MIG and thread env setup ===
