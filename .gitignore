@@ -6,4 +6,6 @@ test_experiment/*/*
 pipeline1/test_experiment/*/*/*
 **json
 **pt
+**.csv
+**.dat
 pipeline2/miniset/*

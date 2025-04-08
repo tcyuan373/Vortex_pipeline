@@ -7,16 +7,11 @@ import torch
 import os
 import argparse
 
-def main(output_dir, pid):
-    # d       = 384
-    # nb      = 8841823
-    # nlist   = 1000
-    # m       = 16
-    # nbits   = 8
-    k       = 5
-    n_times = 10000
-    BS      = 128
+# === Global config ===
+k = 5           # Top-k results
+n_times = 10000  # Number of batches to run
 
+def main(output_dir, pid, bsize):
     index_file     = "/mydata/msmarco/msmarco_pq.index"
     query_e_file   = "/mydata/msmarco/ms_macro_1m_queries_embeds.npy"
 
@@ -27,24 +22,23 @@ def main(output_dir, pid):
     gpu_index.nprobe = 10
 
     # Load queries
-    query_vector = np.load(query_e_file)
+    query_vector = np.load(query_e_file).astype(np.float32)
     print("Query shape:", query_vector.shape)
 
-    # Benchmark
     start_list = []
     end_list = []
 
     start = time.perf_counter()
     for i in tqdm(range(n_times)):
         start_list.append(time.perf_counter())
-        _, _ = gpu_index.search(query_vector[i:(i+BS), :], k)
+        _ = gpu_index.search(query_vector[i:(i + bsize), :], k)
         torch.cuda.synchronize()
         end_list.append(time.perf_counter())
     end = time.perf_counter()
 
-    total_queries = n_times * BS
+    total_queries = n_times * bsize
     throughput = total_queries / (end - start)
-    print(f"Batch size {BS}, throughput: {throughput} queries/sec")
+    print(f"Batch size {bsize}, throughput: {throughput:.2f} queries/sec")
 
     runtime_ns = [int((end - start) * 1e9) for start, end in zip(start_list, end_list)]
     avg_latency_ns = int(np.mean(runtime_ns))
@@ -52,15 +46,16 @@ def main(output_dir, pid):
 
     # Save runtimes
     os.makedirs(output_dir, exist_ok=True)
-    filename = os.path.join(output_dir, f"ivfpq_tp{throughput:.2f}_batch{BS}_runtime{pid}.csv")
+    filename = os.path.join(output_dir, f"ivfpq_tp{throughput:.2f}_batch{bsize}_runtime{pid}.csv")
     with open(filename, mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(runtime_ns)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark FAISS IVFPQ search on GPU")
-    parser.add_argument('output_dir', type=str, help='Directory to store output CSV')
-    parser.add_argument('pid', type=int, help='Process ID to tag the output file (e.g., 0, 1, 2, 3)')
+    parser.add_argument('-p', '--output_dir', type=str, required=True, help='Directory to store output CSV')
+    parser.add_argument('-id', '--pid', type=str, required=True, help='Process ID tag (e.g., 0, 001, MIG1, 000 for no MIG)')
+    parser.add_argument('-b', '--bsize', type=int, required=True, help='Batch size for each search call')
     args = parser.parse_args()
 
-    main(args.output_dir, args.pid)
+    main(args.output_dir, args.pid, args.bsize)

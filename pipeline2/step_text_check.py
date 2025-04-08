@@ -6,8 +6,7 @@ import pickle
 import os
 
 # === Global configuration ===
-BSIZE = 2         # Batch size
-TOTAL_RUNS = 1000    # Number of batches to run
+TOTAL_RUNS = 1000  # Number of batches to run
 
 def textcheck(batch_premise, run_times, tokenizer, model, device):
     inputs = tokenizer(batch_premise,
@@ -22,7 +21,7 @@ def textcheck(batch_premise, run_times, tokenizer, model, device):
     model_end_event.record()
 
     torch.cuda.synchronize()
-    run_times.append((model_start_event.elapsed_time(model_end_event)) * 1e6)
+    run_times.append((model_start_event.elapsed_time(model_end_event)) * 1e6)  # microseconds to nanoseconds
 
     logits = result.logits
     probs = logits.softmax(dim=1)
@@ -32,7 +31,7 @@ def textcheck(batch_premise, run_times, tokenizer, model, device):
     list_of_labels = [model.config.id2label[int(idx)] for idx in list_of_ids]
     return list_of_labels
 
-def main(output_dir, pid):
+def main(output_dir, pid, bsize):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     tokenizer = AutoTokenizer.from_pretrained(
         'badmatr11x/distilroberta-base-offensive-hateful-speech-text-multiclassification')
@@ -47,19 +46,19 @@ def main(output_dir, pid):
     run_times = []
 
     for _ in range(TOTAL_RUNS):
-        batch_premise = [next(iterator) for _ in range(BSIZE)]
+        batch_premise = [next(iterator) for _ in range(bsize)]
         textcheck(batch_premise, run_times, tokenizer, model, device)
 
-    throughput = (BSIZE * len(run_times)) / (sum(run_times) / 1e9)
+    throughput = (bsize * len(run_times)) / (sum(run_times) / 1e9)
     avg_latency = int(sum(run_times) / len(run_times))
 
-    print(f"batch size {BSIZE}, throughput is {throughput}")
-    print(f"avg latency is {avg_latency} ns")
+    print(f"Batch size {bsize}, throughput is {throughput} queries/sec")
+    print(f"Average latency per batch: {avg_latency} ns")
 
     os.makedirs(output_dir, exist_ok=True)
     runtimes_file = os.path.join(
         output_dir,
-        f'roberta_tp{throughput}_text_check_batch{BSIZE}_runtime{pid}.csv'
+        f'roberta_tp{throughput:.2f}_text_check_batch{bsize}_runtime{pid}.csv'
     )
 
     with open(runtimes_file, mode='w', newline='') as file:
@@ -68,8 +67,9 @@ def main(output_dir, pid):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark RoBERTa inference timing")
-    parser.add_argument('output_dir', type=str, help='Directory to store output CSV')
-    parser.add_argument('pid', type=int, help='Process ID to tag the output file (e.g., 0, 1, 2, 3)')
+    parser.add_argument('-p', '--output_dir', type=str, required=True, help='Directory to store output CSV')
+    parser.add_argument('-id', '--pid', type=str, required=True, help='String identifier for process/GPU setup (e.g., 000, MIG1, A100_FULL)')
+    parser.add_argument('-b', '--bsize', type=int, required=True, help='Batch size for inference')
     args = parser.parse_args()
 
-    main(args.output_dir, args.pid)
+    main(args.output_dir, args.pid, args.bsize)
