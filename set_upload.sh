@@ -34,8 +34,7 @@ elif [ -d "$FILE_PATH" ]; then
     --account-name "$STORAGE_ACCOUNT" \
     --destination "$CONTAINER_NAME" \
     --source "$FILE_PATH" \
-    --auth-mode login \
-    --recursive
+    --auth-mode login
 
 else
   echo "Error: '$FILE_PATH' is not a valid file or directory."
