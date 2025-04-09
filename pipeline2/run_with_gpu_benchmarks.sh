@@ -5,8 +5,8 @@ set -e
 # === Usage info ===
 echo "Usage: bash $0 <PID> <MODE1> [MODE2] [MODE3] ..."
 echo "  PID:     Identifier used to pick MIG device. Use '000' to skip setting MIG/threads."
-echo "  MODEs:   One or more of: tcheck, ivf, audio, encode, lang, topic, sum"
-echo "Example:   bash $0 0 tcheck topic sum"
+echo "  MODEs:   One or more of: tcheck, ivf, audio, encode, lang, topic, sum, tts"
+echo "Example:   bash $0 0 tcheck topic tts"
 echo ""
 
 # === Parse input ===
@@ -48,7 +48,7 @@ else
 fi
 
 # === Directories ===
-mkdir -p ppl2_tcheck ppl2_ivf ppl2_audio ppl2_encode ppl2_lang ppl2_topic ppl2_sum
+mkdir -p ppl2_tcheck ppl2_ivf ppl2_audio ppl2_encode ppl2_lang ppl2_topic ppl2_sum ppl2_tts
 
 # === Batch sizes ===
 TEXTCHECK_BATCHES=(1 2 4 8 16 32 64 128 256)
@@ -58,6 +58,7 @@ ENCODE_BATCHES=(1 2 4 8 16 32 64 128 256 512 1024)
 LANG_BATCHES=(1 4 8 12 16 20 24 28 32)
 TOPIC_BATCHES=(1 2 4 8 16 32 64 128)
 SUMMARIZE_BATCHES=(1 2 4 8 16 32)
+TTS_BATCHES=(1 2 4 8 16 32)
 
 # === Benchmark runner ===
 run_benchmark() {
@@ -106,6 +107,9 @@ for MODE in "${MODES[@]}"; do
       ;;
     sum)
       run_benchmark "summarization" "ppl2_sum" "step_sum.py" SUMMARIZE_BATCHES
+      ;;
+    tts)
+      run_benchmark "TTS synthesis" "ppl2_tts" "step_tts.py" TTS_BATCHES
       ;;
     *)
       echo "Unknown mode: $MODE"
