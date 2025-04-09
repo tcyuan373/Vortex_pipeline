@@ -3,12 +3,12 @@ import os
 import torch
 import pickle
 import csv
-from transformers import PegasusForConditionalGeneration, PegasusTokenizer
+from transformers import BartForQuestionAnswering, AutoTokenizer
 
 # === Global configuration ===
 TOTAL_RUNS = 1000
 FILE_PATH = "/mydata/msmarco/msmarco_3_clusters/doc_list.pkl"
-MODEL_NAME = "google/pegasus-xsum"
+MODEL_NAME = "facebook/bart-large-cnn"
 
 def summarize(batch_texts, run_times, tokenizer, model, device):
     batch = tokenizer(batch_texts, truncation=True, padding="longest", return_tensors="pt").to(device)
@@ -31,8 +31,8 @@ def summarize(batch_texts, run_times, tokenizer, model, device):
 def main(output_dir, pid, bsize):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    tokenizer = PegasusTokenizer.from_pretrained(MODEL_NAME)
-    model = PegasusForConditionalGeneration.from_pretrained(MODEL_NAME).to(device)
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    model = BartForQuestionAnswering.from_pretrained(MODEL_NAME).to(device)
 
     with open(FILE_PATH, "rb") as f:
         data = pickle.load(f)
