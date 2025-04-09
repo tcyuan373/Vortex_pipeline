@@ -14,7 +14,7 @@ PID="${1:-000}"
 shift
 MODES=("$@")  # Remaining arguments after PID
 
-# === 2 MIG setting ===
+# === MIG UUIDs ===
 MIG_UUIDS=(
   "MIG-233913d9-81b0-5d34-b353-559b72f50d7a"
   "MIG-4ee6e6c4-2dc8-5ad9-bbd9-a0425774c477"
@@ -45,73 +45,51 @@ mkdir -p ppl2_tcheck ppl2_ivf ppl2_audio ppl2_encode ppl2_lang
 # === Batch sizes ===
 TEXTCHECK_BATCHES=(1 2 4 8 16 32 64 128 256)
 IVFPQ_BATCHES=(1 2 4 8 16 32 64 128 256 512 1024)
-AUDIO_BATCHES=(1 2 4 8 16 32 36 40)
+AUDIO_BATCHES=(20 24 28)
 ENCODE_BATCHES=(1 2 4 8 16 32 64 128 256 512 1024)
 LANG_BATCHES=(1 4 8 12 16 20 24 28 32)
 
-# === Run selected benchmarks ===
+# === Benchmark runner ===
+run_benchmark() {
+  local mode="$1"
+  local dir="$2"
+  local script="$3"
+  local -n batch_sizes=$4
 
+  echo "Running $mode benchmarks..."
+
+  for BSIZE in "${batch_sizes[@]}"; do
+    echo "-> Running $script with batch size $BSIZE"
+    STOP_FILE="$dir/.stop_gpu_monitor_${PID}_${BSIZE}"
+
+    bash gpu_monitor.sh "$dir" "$PID" "$BSIZE" &
+    MONITOR_PID=$!
+    sleep 2
+
+    python "$script" -p "$dir" -id "$PID" -b "$BSIZE"
+
+    rm -f "$STOP_FILE"  # Signal monitor to stop
+    wait "$MONITOR_PID" 2>/dev/null
+  done
+}
+
+# === Mode dispatcher ===
 for MODE in "${MODES[@]}"; do
   case "$MODE" in
     tcheck)
-      echo "Running text check benchmarks..."
-      for BSIZE in "${TEXTCHECK_BATCHES[@]}"; do
-        echo "-> Running step_text_check.py with batch size $BSIZE"
-        bash gpu_monitor.sh ppl2_tcheck "$PID" "$BSIZE" &
-        MONITOR_PID=$!
-        sleep 2  # optional: allow monitor to start
-        python step_text_check.py -p ppl2_tcheck -id "$PID" -b "$BSIZE"
-        kill -SIGINT "$MONITOR_PID"
-        wait "$MONITOR_PID" 2>/dev/null
-      done
+      run_benchmark "text check" "ppl2_tcheck" "step_text_check.py" TEXTCHECK_BATCHES
       ;;
     ivf)
-      echo "Running IVFPQ search benchmarks..."
-      for BSIZE in "${IVFPQ_BATCHES[@]}"; do
-        echo "-> Running step_ivfpq.py with batch size $BSIZE"
-        bash gpu_monitor.sh ppl2_ivf "$PID" "$BSIZE" &
-        MONITOR_PID=$!
-        sleep 2
-        python step_ivfpq.py -p ppl2_ivf -id "$PID" -b "$BSIZE"
-        kill -SIGINT "$MONITOR_PID"
-        wait "$MONITOR_PID" 2>/dev/null
-      done
+      run_benchmark "IVFPQ search" "ppl2_ivf" "step_ivfpq.py" IVFPQ_BATCHES
       ;;
     audio)
-      echo "Running audio recognition benchmarks..."
-      for BSIZE in "${AUDIO_BATCHES[@]}"; do
-        echo "-> Running step_audio_recognition.py with batch size $BSIZE"
-        bash gpu_monitor.sh ppl2_audio "$PID" "$BSIZE" &
-        MONITOR_PID=$!
-        sleep 2
-        python step_audio_recognition.py -p ppl2_audio -id "$PID" -b "$BSIZE"
-        kill -SIGINT "$MONITOR_PID"
-        wait "$MONITOR_PID" 2>/dev/null
-      done
+      run_benchmark "audio recognition" "ppl2_audio" "step_audio_recognition.py" AUDIO_BATCHES
       ;;
     encode)
-      echo "Running encode benchmarks..."
-      for BSIZE in "${ENCODE_BATCHES[@]}"; do
-        echo "-> Running step_encode.py with batch size $BSIZE"
-        bash gpu_monitor.sh ppl2_encode "$PID" "$BSIZE" &
-        MONITOR_PID=$!
-        sleep 2
-        python step_encode.py -p ppl2_encode -id "$PID" -b "$BSIZE"
-        kill -SIGINT "$MONITOR_PID"
-        wait "$MONITOR_PID" 2>/dev/null
-      done
+      run_benchmark "encode" "ppl2_encode" "step_encode.py" ENCODE_BATCHES
       ;;
     lang)
-      echo "Running language detection benchmarks..."
-      for BSIZE in "${LANG_BATCHES[@]}"; do
-        echo "-> Running step_lan_det.py with batch size $BSIZE"
-        bash gpu_monitor.sh ppl2_lang "$PID" "$BSIZE" &
-        MONITOR_PID=$!
-        sleep 2
-        python step_lan_det.py -p ppl2_lang -id "$PID" -b "$BSIZE"
-        kill -SIGINT "$MONITOR_PID"
-        wait "$MONITOR_PID" 2>/dev/null
-      done
+      run_benchmark "language detection" "ppl2_lang" "step_lan_det.py" LANG_BATCHES
       ;;
     *)
       echo "Unknown mode: $MODE"

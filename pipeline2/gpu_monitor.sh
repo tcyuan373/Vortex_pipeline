@@ -10,53 +10,45 @@ LOG_DIR="$1"
 PID="$2"
 BSIZE="$3"
 
-# === Ensure log directory exists ===
 mkdir -p "$LOG_DIR"
+FINAL_GPU_LOG="$LOG_DIR/gpu_util_pid${PID}_bsize${BSIZE}.csv"
+INTERVAL=2
 
-# === Final log filenames ===
-FINAL_GPU_LOG="$LOG_DIR/gpu_util_pid${PID}_bsize${BSIZE}.dat"
-DCGM_LOG="$LOG_DIR/dcgm_log_pid${PID}_bsize${BSIZE}.dat"
-TEMP_GPU_FILE=$(mktemp)
+declare -a MEMORY_USED_LIST
+declare -a UTILIZATION_LIST
 
-# === Monitoring intervals ===
-MEMORY_INTERVAL=5  # seconds
-DCGM_INTERVAL=5    # seconds
-DCGM_SAMPLING_INTERVAL=$((DCGM_INTERVAL * 1000))
+STOP_FILE="$LOG_DIR/.stop_gpu_monitor_${PID}_${BSIZE}"
 
-# === Write header for GPU memory log ===
-echo "Timestamp, GPU_ID, Total_Memory_MB, Used_Memory_MB, Free_Memory_MB" > "$TEMP_GPU_FILE"
-
-# === Start DCGM monitoring ===
-echo "Starting DCGM monitoring (logs to $DCGM_LOG)..."
-stdbuf -oL dcgmi dmon -e 203,204,1001,1002,1003,1004,1005,155 -d "$DCGM_SAMPLING_INTERVAL" > "$DCGM_LOG" 2>&1 &
-DCGM_PID=$!
-
-# === Cleanup function ===
 cleanup() {
-    echo "Stopping DCGM monitoring..."
-    kill -SIGTERM "$DCGM_PID"
-    sleep 1
-    sync
-
-    echo "Saving collected GPU memory usage to $FINAL_GPU_LOG..."
-    mv "$TEMP_GPU_FILE" "$FINAL_GPU_LOG"
-
-    echo "Logs saved to $FINAL_GPU_LOG and $DCGM_LOG."
+    echo "Stopping GPU monitoring..."
+    echo "Saving logs to $FINAL_GPU_LOG..."
+    IFS=',' MEM_LINE="${MEMORY_USED_LIST[*]}"
+    IFS=',' UTIL_LINE="${UTILIZATION_LIST[*]}"
+    echo "$MEM_LINE" > "$FINAL_GPU_LOG"
+    echo "$UTIL_LINE" >> "$FINAL_GPU_LOG"
+    rm -f "$STOP_FILE"
+    echo "Logs saved to $FINAL_GPU_LOG."
     exit 0
 }
 
-# === Trap Ctrl+C (SIGINT) to trigger cleanup ===
-trap cleanup SIGINT
+trap cleanup SIGINT SIGTERM
 
-echo "Logging GPU memory usage every $MEMORY_INTERVAL seconds. DCGM monitoring every $DCGM_INTERVAL seconds."
-echo "Press Ctrl+C to stop and save logs."
+echo "GPU monitor running with PID $$"
+echo "Monitoring GPU every $INTERVAL seconds until $STOP_FILE is removed."
 
-# === Main loop for GPU memory logging ===
-while true; do
-    TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
-    nvidia-smi --query-gpu=index,memory.total,memory.used,memory.free --format=csv,noheader,nounits | \
-    while IFS=',' read -r GPU_ID TOTAL USED FREE; do
-        echo "$TIMESTAMP, $GPU_ID, $TOTAL, $USED, $FREE" >> "$TEMP_GPU_FILE"
+# Create stop file
+touch "$STOP_FILE"
+
+while [[ -f "$STOP_FILE" ]]; do
+    mapfile -t output_lines < <(nvidia-smi --query-gpu=utilization.gpu,memory.used --format=csv,noheader,nounits)
+
+    for line in "${output_lines[@]}"; do
+        IFS=',' read -r UTIL USED_MEM <<< "$line"
+        MEMORY_USED_LIST+=("${USED_MEM// /}")
+        UTILIZATION_LIST+=("${UTIL// /}")
     done
-    sleep $MEMORY_INTERVAL
+
+    sleep $INTERVAL
 done
+
+cleanup
