@@ -18,14 +18,20 @@ def summarize(batch_texts, run_times, tokenizer, model, device):
 
     model_start_event.record()
     with torch.no_grad():
-        generated = model.generate(**batch)
+        outputs = model(**batch)
+    answer_start_index = outputs.start_logits.argmax()
+    answer_end_index = outputs.end_logits.argmax()
+
+    predict_answer_tokens = batch.input_ids[0, answer_start_index : answer_end_index + 1]
+    res = tokenizer.decode(predict_answer_tokens, skip_special_tokens=True)
+    
     model_end_event.record()
     torch.cuda.synchronize()
 
     run_times.append(model_start_event.elapsed_time(model_end_event) * 1e6)  # microseconds to nanoseconds
-
-    summaries = tokenizer.batch_decode(generated, skip_special_tokens=True)
-    return summaries
+    print(f"result is {res}")
+    # summaries = tokenizer.batch_decode(generated, skip_special_tokens=True)
+    return res
 
 
 def main(output_dir, pid, bsize):
