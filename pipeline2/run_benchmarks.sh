@@ -1,12 +1,12 @@
-#!/bin/bash
+#!/bin/bash 
 
 set -e
 
 # === Usage info ===
 echo "Usage: bash $0 <PID> <MODE1> [MODE2] [MODE3] ..."
 echo "  PID:     Identifier used to pick MIG device. Use '000' to skip setting MIG/threads."
-echo "  MODEs:   One or more of: tcheck, ivf, audio, encode, lang"
-echo "Example:   bash $0 0 tcheck ivf"
+echo "  MODEs:   One or more of: tcheck, ivf, audio, encode, lang, topic"
+echo "Example:   bash $0 0 tcheck topic encode"
 echo ""
 
 # === Parse input ===
@@ -48,7 +48,7 @@ else
 fi
 
 # === Directories ===
-mkdir -p ppl2_tcheck ppl2_ivf ppl2_audio ppl2_encode ppl2_lang
+mkdir -p ppl2_tcheck ppl2_ivf ppl2_audio ppl2_encode ppl2_lang ppl2_topic
 
 # === Batch sizes ===
 TEXTCHECK_BATCHES=(1 2 4 8 16 32 64 128 256)
@@ -56,6 +56,7 @@ IVFPQ_BATCHES=(1 2 4 8 16 32 64 128 256 512 1024)
 AUDIO_BATCHES=(1 2 4 8 16 32 36 40)
 ENCODE_BATCHES=(1 2 4 8 16 32 64 128 256 512 1024)
 LANG_BATCHES=(1 4 8 12 16 20 24 28 32)
+TOPIC_BATCHES=(1 2 4 8 16 32 64 128)
 
 # === Run selected benchmarks ===
 
@@ -94,6 +95,13 @@ for MODE in "${MODES[@]}"; do
       for BSIZE in "${LANG_BATCHES[@]}"; do
         echo "-> Running step_lan_det.py with batch size $BSIZE"
         python step_lan_det.py -p ppl2_lang -id "$PID" -b "$BSIZE"
+      done
+      ;;
+    topic)
+      echo "Running topic classification benchmarks..."
+      for BSIZE in "${TOPIC_BATCHES[@]}"; do
+        echo "-> Running step_topic_classification.py with batch size $BSIZE"
+        python step_topic_classification.py -p ppl2_topic -id "$PID" -b "$BSIZE"
       done
       ;;
     *)
