@@ -5,7 +5,7 @@ set -e
 # === Usage info ===
 echo "Usage: bash $0 <PID> <MODE1> [MODE2] [MODE3] ..."
 echo "  PID:     Identifier used to pick MIG device. Use '000' to skip setting MIG/threads."
-echo "  MODEs:   One or more of: tcheck, ivf, audio, encode, lang, topic, sum"
+echo "  MODEs:   One or more of: tcheck, ivf, audio, encode, lang, topic, sum, tts"
 echo "Example:   bash $0 0 tcheck topic sum"
 echo ""
 
@@ -48,7 +48,7 @@ else
 fi
 
 # === Directories ===
-mkdir -p ppl2_tcheck ppl2_ivf ppl2_audio ppl2_encode ppl2_lang ppl2_topic ppl2_sum
+mkdir -p ppl2_tcheck ppl2_ivf ppl2_audio ppl2_encode ppl2_lang ppl2_topic ppl2_sum ppl2_tts
 
 # === Batch sizes ===
 TEXTCHECK_BATCHES=(1 2 4 8 16 32 64 128 256)
@@ -58,7 +58,7 @@ ENCODE_BATCHES=(1 2 4 8 16 32 64 128 256 512 1024)
 LANG_BATCHES=(1 4 8 12 16 20 24 28 32)
 TOPIC_BATCHES=(1 2 4 8 16 32 64 128)
 SUMMARIZE_BATCHES=(1 2 4 8 16 32)
-
+TTS_BATCHES=(1 2)
 # === Run selected benchmarks ===
 
 for MODE in "${MODES[@]}"; do
@@ -110,6 +110,13 @@ for MODE in "${MODES[@]}"; do
       for BSIZE in "${SUMMARIZE_BATCHES[@]}"; do
         echo "-> Running step_sum.py with batch size $BSIZE"
         python step_sum.py -p ppl2_sum -id "$PID" -b "$BSIZE"
+      done
+      ;;
+    tts)
+      echo "Running TTS benchmarks..."
+      for BSIZE in "${TTS_BATCHES[@]}"; do
+        echo "-> Running step_tts.py with batch size $BSIZE"
+        python step_tts.py -p ppl2_tts -id "$PID" -b "$BSIZE"
       done
       ;;
     *)

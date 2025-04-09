@@ -1,79 +1,76 @@
+import logging
+logging.disable(logging.CRITICAL)
 import argparse
 import os
-import time
-import torch
 import csv
 import pickle
-from torch.nn.utils.rnn import pad_sequence
+import torch
 from nemo.collections.tts.models import FastPitchModel, HifiGanModel
+from torch.nn.utils.rnn import pad_sequence
 
-# === Global configuration ===
+# === Global config ===
 TOTAL_RUNS = 1000
-FILE_PATH = "/mydata/msmarco/msmarco_3_clusters/doc_list.pkl"
+TEXT_FILE_PATH = "/mydata/msmarco/msmarco_3_clusters/doc_list.pkl"  # List[str]
+FASTPITCH_NAME = "nvidia/tts_en_fastpitch"
+HIFIGAN_NAME = "nvidia/tts_hifigan"
 
-def run_tts(batch_texts, run_times, spec_generator, vocoder, device):
+def synthesize(batch_texts, run_times, fastpitch, hifigan, device):
     with torch.no_grad():
-        token_tensors = [spec_generator.parse(text).squeeze() for text in batch_texts]
-        padded_tokens = pad_sequence(token_tensors, batch_first=True).to(device)
+        token_list = [fastpitch.parse(text).squeeze(0) for text in batch_texts]
+        tokens = pad_sequence(token_list, batch_first=True).to(device)
 
-        model_start_event = torch.cuda.Event(enable_timing=True)
-        model_end_event = torch.cuda.Event(enable_timing=True)
+        start_event = torch.cuda.Event(enable_timing=True)
+        end_event = torch.cuda.Event(enable_timing=True)
 
-        model_start_event.record()
-        spectrograms = spec_generator.generate_spectrogram(tokens=padded_tokens)
-        audios = [vocoder.convert_spectrogram_to_audio(spec=spec.unsqueeze(0)).squeeze().detach().cpu().numpy()
-                  for spec in spectrograms]
-        model_end_event.record()
-
+        start_event.record()
+        spectrograms = fastpitch.generate_spectrogram(tokens=tokens)
+        audios = hifigan.convert_spectrogram_to_audio(spec=spectrograms)
+        end_event.record()
         torch.cuda.synchronize()
-        run_times.append(model_start_event.elapsed_time(model_end_event) * 1e6)  # microseconds to nanoseconds
 
-    return list(zip(batch_texts, audios))
+        latency_ns = start_event.elapsed_time(end_event) * 1e6  # ms -> ns
+        run_times.append(latency_ns)
+    
+    return audios
+
 
 def main(output_dir, pid, bsize):
-    os.makedirs(output_dir, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    print("Loading FastPitch...")
-    spec_generator = FastPitchModel.from_pretrained("nvidia/tts_en_fastpitch").to(device).eval()
-    print("Loading HiFi-GAN vocoder...")
-    vocoder = HifiGanModel.from_pretrained("nvidia/tts_hifigan").to(device).eval()
+    fastpitch = FastPitchModel.from_pretrained(FASTPITCH_NAME).to(device).eval()
+    hifigan = HifiGanModel.from_pretrained(model_name=HIFIGAN_NAME).to(device).eval()
 
-    with open(FILE_PATH, "rb") as f:
-        data = pickle.load(f)
+    with open(TEXT_FILE_PATH, "rb") as f:
+        texts = pickle.load(f)  # should be a list of strings
 
-    iterator = iter(data)
+    iterator = iter(texts)
     run_times = []
-    results = []
 
     for _ in range(TOTAL_RUNS):
-        batch_texts = [next(iterator) for _ in range(bsize)]
-        results.extend(run_tts(batch_texts, run_times, spec_generator, vocoder, device))
+        batch = [next(iterator) for _ in range(bsize)]
+        _ = synthesize(batch, run_times, fastpitch, hifigan, device)
 
-    throughput = (bsize * len(run_times)) / (sum(run_times) / 1e9)
-    avg_latency = int(sum(run_times) / len(run_times))
+    throughput = (bsize * len(run_times)) / (sum(run_times) / 1e9)  # samples/sec
+    avg_latency = int(sum(run_times) / len(run_times))  # ns
 
-    print(f"Batch size {bsize}, throughput: {throughput:.2f} queries/sec")
+    print(f"Batch size {bsize}, throughput: {throughput:.2f} audios/sec")
     print(f"Average latency per batch: {avg_latency} ns")
 
-    # Save audio to pkl
-    output_pkl = os.path.join(output_dir, f"tts_fastpitch_output_{pid}.pkl")
-    with open(output_pkl, "wb") as f:
-        pickle.dump(results, f)
-
-    # Save runtime
-    runtimes_file = os.path.join(
-        output_dir, f"tts_fastpitch_bsize{bsize}_runtime{pid}_tp{throughput:.2f}.csv"
+    os.makedirs(output_dir, exist_ok=True)
+    csv_path = os.path.join(
+        output_dir, f"tts_batch{bsize}_runtime{pid}_tp{throughput:.2f}.csv"
     )
-    with open(runtimes_file, mode="w", newline="") as f:
+
+    with open(csv_path, mode="w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(run_times)
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark FastPitch + HiFi-GAN TTS")
-    parser.add_argument('-p', '--output_dir', type=str, required=True, help="Directory to store output files")
-    parser.add_argument('-id', '--pid', type=str, required=True, help="Identifier for process/GPU setup")
-    parser.add_argument('-b', '--bsize', type=int, required=True, help="Batch size for synthesis")
+    parser.add_argument("-p", "--output_dir", type=str, required=True, help="Directory to store runtime CSV")
+    parser.add_argument("-id", "--pid", type=str, required=True, help="Identifier for process/GPU setup")
+    parser.add_argument("-b", "--bsize", type=int, required=True, help="Batch size for TTS")
     args = parser.parse_args()
 
     main(args.output_dir, args.pid, args.bsize)
