@@ -5,8 +5,8 @@ set -e
 # === Usage info ===
 echo "Usage: bash $0 <PID> <MODE1> [MODE2] [MODE3] ..."
 echo "  PID:     Identifier used to pick MIG device. Use '000' to skip setting MIG/threads."
-echo "  MODEs:   One or more of: tcheck, ivf, audio, encode, lang, topic"
-echo "Example:   bash $0 0 tcheck topic ivf"
+echo "  MODEs:   One or more of: tcheck, ivf, audio, encode, lang, topic, sum"
+echo "Example:   bash $0 0 tcheck topic sum"
 echo ""
 
 # === Parse input ===
@@ -22,7 +22,7 @@ MODES=("$@")  # Remaining arguments after PID
 #  "MIG-f845e8ee-9f2a-5a0d-991e-707536011766"
 #)
 
-# == 2MIG setting==
+# === 2 MIG setting ===
 MIG_UUIDS=(
   "MIG-233913d9-81b0-5d34-b353-559b72f50d7a"
   "MIG-4ee6e6c4-2dc8-5ad9-bbd9-a0425774c477"
@@ -48,7 +48,7 @@ else
 fi
 
 # === Directories ===
-mkdir -p ppl2_tcheck ppl2_ivf ppl2_audio ppl2_encode ppl2_lang ppl2_topic
+mkdir -p ppl2_tcheck ppl2_ivf ppl2_audio ppl2_encode ppl2_lang ppl2_topic ppl2_sum
 
 # === Batch sizes ===
 TEXTCHECK_BATCHES=(1 2 4 8 16 32 64 128 256)
@@ -57,6 +57,7 @@ AUDIO_BATCHES=(20 24 28)
 ENCODE_BATCHES=(1 2 4 8 16 32 64 128 256 512 1024)
 LANG_BATCHES=(1 4 8 12 16 20 24 28 32)
 TOPIC_BATCHES=(1 2 4 8 16 32 64 128)
+SUMMARIZE_BATCHES=(1 2 4 8 16 32)
 
 # === Benchmark runner ===
 run_benchmark() {
@@ -102,6 +103,9 @@ for MODE in "${MODES[@]}"; do
       ;;
     topic)
       run_benchmark "topic classification" "ppl2_topic" "step_topic_classification.py" TOPIC_BATCHES
+      ;;
+    sum)
+      run_benchmark "summarization" "ppl2_sum" "step_sum.py" SUMMARIZE_BATCHES
       ;;
     *)
       echo "Unknown mode: $MODE"
