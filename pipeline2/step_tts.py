@@ -16,13 +16,15 @@ HIFIGAN_NAME = "nvidia/tts_hifigan"
 
 def synthesize(batch_texts, run_times, fastpitch, hifigan, device):
     with torch.no_grad():
-        token_list = [fastpitch.parse(text).squeeze(0) for text in batch_texts]
-        tokens = pad_sequence(token_list, batch_first=True).to(device)
+        #token_list = [fastpitch.parse(text).squeeze(0) for text in batch_texts]
+        #tokens = pad_sequence(token_list, batch_first=True).to(device)
 
         start_event = torch.cuda.Event(enable_timing=True)
         end_event = torch.cuda.Event(enable_timing=True)
 
         start_event.record()
+        token_list = [fastpitch.parse(text).squeeze(0) for text in batch_texts]
+        tokens = pad_sequence(token_list, batch_first=True).to(device)
         spectrograms = fastpitch.generate_spectrogram(tokens=tokens)
         audios = hifigan.convert_spectrogram_to_audio(spec=spectrograms)
         end_event.record()
