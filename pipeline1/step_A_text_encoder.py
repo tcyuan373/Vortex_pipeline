@@ -19,15 +19,15 @@ from flmr import (
 
 warnings.filterwarnings("ignore")
 
-TOTAL_RUNS = 1000
+TOTAL_RUNS = 1
 QUERY_JSON_PATH = "/mydata/EVQA/queries.json"
 
 
 class StepAWrapper:
     def __init__(self):
         self.checkpoint_path = 'LinWeizheDragon/PreFLMR_ViT-L'
-        self.local_encoder_path = 'models_step_A_query_text_encoder.pt'
-        self.local_projection_path = 'models_step_A_query_text_linear.pt'
+        self.local_encoder_path = '/mydata/EVQA/models/models_step_A_query_text_encoder.pt'
+        self.local_projection_path = '/mydata/EVQA/models/models_step_A_query_text_linear.pt'
 
         self.flmr_config = FLMRConfig.from_pretrained(self.checkpoint_path)
         self.query_tokenizer = FLMRQueryEncoderTokenizer.from_pretrained(
@@ -84,9 +84,11 @@ def run_benchmark(data, bsize, encoder):
         model_end_event = torch.cuda.Event(enable_timing=True)
 
         model_start_event.record()
+
         _ = encoder.encode(query_list)
-        model_end_event.record()
         torch.cuda.synchronize()
+
+        model_end_event.record()
 
         run_times.append(model_start_event.elapsed_time(model_end_event) * 1e6)  # µs to ns
 

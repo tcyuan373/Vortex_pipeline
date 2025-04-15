@@ -1,58 +1,109 @@
-from flmr import search_custom_collection, create_searcher, FLMRConfig, FLMRQueryEncoderTokenizer
+#!/usr/bin/env python3
+import argparse
+import csv
+import os
+import json
 import torch
-import random
-from transformers import AutoImageProcessor
+import numpy as np
+from flmr import search_custom_collection, create_searcher
 
-bsize = 32
-late_interaction_size = 128
+
+TOTAL_RUNS = 1
+QUERY_PATH = "/mydata/EVQA/queries.json"
+EMBED_PATH = "/mydata/EVQA/qembeds.pt"
 
 
 class StepE:
-    def __init__(self, 
-                 index_root_path='.',
-                 index_experiment_name='test_experiment',
-                 index_name='test_index',
-                 ):
+    def __init__(
+        self,
+        index_root_path='/mydata/EVQA/index/',
+        index_experiment_name='EVQA_train_split/',
+        index_name='EVQA_PreFLMR_ViT-L',
+    ):
         self.searcher = create_searcher(
             index_root_path=index_root_path,
             index_experiment_name=index_experiment_name,
             index_name=index_name,
-            nbits=8, # number of bits in compression
-            use_gpu=True, # break if set to False, see doc: https://docs.google.com/document/d/1KuWGWZrxURkVxDjFRy1Qnwsy7jDQb-RhlbUzm_A-tOs/edit?tab=t.0
+            nbits=8,
+            use_gpu=True,
         )
 
-    # input: question, question_id, image_features, 
     def step_E_search(self, queries, query_embeddings):
-        ranking = search_custom_collection(
+        result = search_custom_collection(
             searcher=self.searcher,
             queries=queries,
             query_embeddings=query_embeddings,
-            num_document_to_retrieve=2, # how many documents to retrieve for each query
+            num_document_to_retrieve=2,
             centroid_search_batch_size=1,
         )
-        return ranking.todict()
+        return result.todict()
 
 
+def run_benchmark(queries_dict, query_embeddings, bsize, searcher):
+    run_times = []
+    all_keys = list(queries_dict.keys())
+    all_texts = list(queries_dict.values())
+    num_queries = len(all_keys)
 
-if __name__=='__main__':
-    
-    # dummy_dict = {f
-    #     'question_id': [0],
-    #     'question': ["test sentence test sentece, this this, 100"],
-    # }
-    # question_ids = [0, 1, 2]
-    # dummy_dict = {
-    #     'question_id': question_ids,
-    #     'question': ["test sentence test sentece, this this, 100", "GOJI", "I love puppies"],
-    #     'embedding': [torch.randn(3, 320, 128) for i in range(len(question_ids))]
-    # }
-    num_queries = 2
+    for i in range(TOTAL_RUNS):
+        start_idx = (i * bsize) % num_queries
+        indices = [(start_idx + j) % num_queries for j in range(bsize)]
+        
+        batch_keys = [all_keys[idx] for idx in indices]
+        batch_texts = [all_texts[idx] for idx in indices]
+        batch_embeddings = query_embeddings[indices]
 
-    dummy_q_embeds = torch.randn(num_queries, 320, 128)
-    query_instructions = [f"instruction {i}" for i in range(num_queries)]
-    query_texts = [f"{query_instructions[i]} : query {i}" for i in range(num_queries)]
-    queries = {i: query_texts[i] for i in range(num_queries)}
+        queries_batch = dict(zip(batch_keys, batch_texts))
+
+        start_event = torch.cuda.Event(enable_timing=True)
+        end_event = torch.cuda.Event(enable_timing=True)
+
+        start_event.record()
+        _ = searcher.step_E_search(queries_batch, batch_embeddings)
+        torch.cuda.synchronize()
+        end_event.record()
+        
+        elapsed = start_event.elapsed_time(end_event) * 1e6  # microseconds to nanoseconds
+        run_times.append(elapsed)
+
+    return run_times
+
+
+def main(output_dir, pid, bsize):
+    with open(QUERY_PATH, 'r') as f:
+        queries_dict = json.load(f)
+
+    query_embeddings = torch.load(EMBED_PATH)
+    print(f"query embeddings type: {type(query_embeddings)}")
+
+    # If it's a list of tensors, stack into a single tensor
+    if isinstance(query_embeddings, list):
+        query_embeddings = torch.cat(query_embeddings, dim=0)
+
+    print(f"Final stacked query embeddings shape: {query_embeddings.shape}")
+    assert query_embeddings.dim() == 3, "Expected [N, T, D] shaped tensor"
 
     stepE = StepE()
-    ranking_dict = stepE.step_E_search(queries, dummy_q_embeds)
-    print(ranking_dict)
+    run_times = run_benchmark(queries_dict, query_embeddings, bsize, stepE)
+
+    throughput = (bsize * len(run_times)) / (sum(run_times) / 1e9)
+    avg_latency = int(sum(run_times) / len(run_times))
+
+    print(f"Batch size {bsize}, throughput: {throughput:.2f} queries/sec")
+    print(f"Average latency per batch (StepE): {avg_latency} ns")
+
+    os.makedirs(output_dir, exist_ok=True)
+    out_file = os.path.join(output_dir, f'stepE_bsize{bsize}_runtime{pid}_tp{throughput:.2f}.csv')
+
+    with open(out_file, mode='w', newline='') as f:
+        csv.writer(f).writerow(run_times)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Benchmark StepE Search (query -> ranking)")
+    parser.add_argument("-p", "--output_dir", type=str, required=True)
+    parser.add_argument("-id", "--pid", type=str, required=True)
+    parser.add_argument("-b", "--bsize", type=int, required=True)
+    args = parser.parse_args()
+
+    main(args.output_dir, args.pid, args.bsize)
