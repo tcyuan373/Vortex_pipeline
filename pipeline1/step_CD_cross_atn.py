@@ -22,7 +22,7 @@ class StepC:
         transformer_mapping_config.is_decoder = True
         transformer_mapping_config.add_cross_attention = True
 
-        self.local_model_path = "models_step_C_transformer_mapping_input_linear.pt"
+        self.local_model_path = "/mydata/EVQA/models/models_step_C_transformer_mapping_input_linear.pt"
 
         if not os.path.exists(self.local_model_path):
             full_model = FLMRModelForRetrieval.from_pretrained(
