@@ -5,7 +5,7 @@ set -e
 # === Usage info ===
 echo "Usage: bash $0 <PID> <MODE1> [MODE2] [MODE3] ..."
 echo "  PID:     Identifier used to pick MIG device. Use '000' to skip setting MIG/threads."
-echo "  MODEs:   One or more of: A B CD E"
+echo "  MODEs:   One or more of: A B CD E streamE"
 echo "Example:   bash $0 0 A CD E"
 echo ""
 
@@ -15,17 +15,17 @@ shift
 MODES=("$@")  # Remaining arguments after PID
 
 # === 4 MIG UUIDs ===
-# MIG_UUIDS=(
-#   "MIG-efb9cd1f-5a0f-569b-98b3-d0ea501d8c4e"
-#   "MIG-5dfdb424-8448-5ca7-a15e-75706b8d5ab6"
-#   "MIG-2c1b2fae-443c-5fa4-8530-ee9471c2d057"
-#   "MIG-f845e8ee-9f2a-5a0d-991e-707536011766"
-# )
+#MIG_UUIDS=(
+#  "MIG-3357e852-8b6d-5d90-8755-2f9f2e542311"
+#  "MIG-88103043-32d5-5304-9384-79008081ec63"
+#  "MIG-d7cf6436-b3e7-5230-b9d4-3cff2af2b1a9"
+#  "MIG-5a6035a9-6f02-5280-b85a-84d30f245c16"
+#)
 
 # == 2 MIG setting ==
 MIG_UUIDS=(
-  "MIG-233913d9-81b0-5d34-b353-559b72f50d7a"
-  "MIG-4ee6e6c4-2dc8-5ad9-bbd9-a0425774c477"
+    "MIG-a79594fe-f33a-5f37-9148-af16fbb9f1e0"
+    "MIG-3d993195-0b7f-5f90-a21c-ebb1caa36fb5"
 )
 
 # === Optional MIG and thread env setup ===
@@ -51,9 +51,9 @@ fi
 mkdir -p micro_stepA micro_stepB micro_stepCD micro_stepE
 
 # === Batch sizes ===
-BATCHES_COMMON=(1 2 4 8 12 16 20 24 28 32)
+BATCHES_COMMON=(4 8 16 )
 BATCHES_HEAVY=(1 2 4 8 16 32 64 128 256 512)
-BATCHES_E=(1 2 4 8 16 32 64)
+BATCHES_E=(1 4 8 16)
 
 # === Run selected benchmarks ===
 for MODE in "${MODES[@]}"; do
@@ -81,9 +81,16 @@ for MODE in "${MODES[@]}"; do
       ;;
     E)
       echo "Running Step E (search) benchmarks..."
-      for BSIZE in "${BATCHES_COMMON[@]}"; do
+      for BSIZE in "${BATCHES_E[@]}"; do
         echo "-> Running step_E_search.py with batch size $BSIZE"
         python step_E_search.py -p micro_stepE -id "$PID" -b "$BSIZE"
+      done
+      ;;
+    streamE)
+      echo "Running stream Step E (search) benchmarks..."
+      for BSIZE in "${BATCHES_E[@]}"; do
+        echo "-> Running stream_stepE.py with batch size $BSIZE"
+        python stream_stepE.py -p micro_stepE -id "$PID" -b "$BSIZE" 
       done
       ;;
     *)

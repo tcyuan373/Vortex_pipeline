@@ -9,7 +9,7 @@ from flmr import FLMRConfig, FLMRQueryEncoderTokenizer, FLMRContextEncoderTokeni
 from transformers import BertConfig
 from transformers.models.bert.modeling_bert import BertEncoder
 
-TOTAL_RUNS = 1
+TOTAL_RUNS = 1000
 
 
 class StepC:
@@ -181,8 +181,8 @@ def run_benchmark(flmr_config, bsize, output_dir, pid):
         tf_input = step_c.stepC_output(vis_hs)
         _ = step_d.cross_attn_embedding(ids, txt_embed, txt_enc_hs, vis_embed, tf_input)
         
-        torch.cuda.synchronize()
         end.record()
+        torch.cuda.synchronize()
 
         elapsed = start.elapsed_time(end) * 1e6  # ns
         run_times.append(elapsed)

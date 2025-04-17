@@ -8,7 +8,7 @@ import numpy as np
 from flmr import search_custom_collection, create_searcher
 
 
-TOTAL_RUNS = 1
+TOTAL_RUNS = 1000
 QUERY_PATH = "/mydata/EVQA/queries.json"
 EMBED_PATH = "/mydata/EVQA/qembeds.pt"
 
@@ -33,8 +33,8 @@ class StepE:
             searcher=self.searcher,
             queries=queries,
             query_embeddings=query_embeddings,
-            num_document_to_retrieve=2,
-            centroid_search_batch_size=1,
+            num_document_to_retrieve=5,
+            centroid_search_batch_size=None,
         )
         return result.todict()
 
@@ -54,14 +54,17 @@ def run_benchmark(queries_dict, query_embeddings, bsize, searcher):
         batch_embeddings = query_embeddings[indices]
 
         queries_batch = dict(zip(batch_keys, batch_texts))
-
+        
         start_event = torch.cuda.Event(enable_timing=True)
         end_event = torch.cuda.Event(enable_timing=True)
 
         start_event.record()
-        _ = searcher.step_E_search(queries_batch, batch_embeddings)
-        torch.cuda.synchronize()
+        res = searcher.step_E_search(queries_batch, batch_embeddings)
+        ret = []
+        for i in res:
+            ret.append(res[i])
         end_event.record()
+        torch.cuda.synchronize()
         
         elapsed = start_event.elapsed_time(end_event) * 1e6  # microseconds to nanoseconds
         run_times.append(elapsed)

@@ -19,7 +19,7 @@ from flmr import (
 
 warnings.filterwarnings("ignore")
 
-TOTAL_RUNS = 1
+TOTAL_RUNS = 1000
 QUERY_JSON_PATH = "/mydata/EVQA/queries.json"
 
 
@@ -75,6 +75,9 @@ class StepAWrapper:
 def run_benchmark(data, bsize, encoder):
     run_times = []
     j = 0
+    # === Warm-up ===
+    _ = encoder.encode([data[0]])
+    torch.cuda.synchronize()
 
     for _ in range(TOTAL_RUNS):
         query_list = [data[j % len(data)] for _ in range(bsize)]
@@ -86,9 +89,10 @@ def run_benchmark(data, bsize, encoder):
         model_start_event.record()
 
         _ = encoder.encode(query_list)
-        torch.cuda.synchronize()
+        
 
         model_end_event.record()
+        torch.cuda.synchronize()
 
         run_times.append(model_start_event.elapsed_time(model_end_event) * 1e6)  # µs to ns
 

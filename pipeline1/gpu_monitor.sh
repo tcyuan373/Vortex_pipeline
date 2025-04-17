@@ -12,7 +12,7 @@ BSIZE="$3"
 
 mkdir -p "$LOG_DIR"
 FINAL_GPU_LOG="$LOG_DIR/gpu_util_pid${PID}_bsize${BSIZE}.csv"
-INTERVAL=2
+INTERVAL=1
 
 declare -a MEMORY_USED_LIST
 declare -a UTILIZATION_LIST

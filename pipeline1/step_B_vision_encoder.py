@@ -20,7 +20,7 @@ from flmr import (
 
 warnings.filterwarnings("ignore")
 
-TOTAL_RUNS = 1
+TOTAL_RUNS = 1000
 IMAGE_DIR = './images'
 
 
@@ -124,8 +124,8 @@ def run_benchmark(images, bsize, encoder):
         start_event.record()
         _ = encoder.encode(image_batch)
 
-        torch.cuda.synchronize()
         end_event.record()
+        torch.cuda.synchronize()
         
 
         run_times.append(start_event.elapsed_time(end_event) * 1e6)  # microseconds to nanoseconds

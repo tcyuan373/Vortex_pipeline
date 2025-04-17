@@ -52,8 +52,8 @@ mkdir -p micro_stepA micro_stepB micro_stepCD micro_stepE
 
 # === Batch sizes ===
 BATCHES_A=(1 2 4 8 12 16 20 24 28 32)
-BATCHES_B=(1 2 4 8 12 16 20 24 28 32)
-BATCHES_CD=((1 2 4 8 12 16 20 24 28 32)
+BATCHES_B=(1 2 4 8 12 16 20)
+BATCHES_CD=(12 16 20 )
 BATCHES_E=(1 2 4 8 12 16 20 24 28 32)
 
 # === Benchmark runner with GPU monitor ===
