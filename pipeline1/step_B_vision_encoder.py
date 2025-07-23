@@ -85,7 +85,7 @@ class StepBWrapper:
     def encode(self, images):
         pixel_values = []
         for img in images:
-            encoded = self.image_processor(img, return_tensors="pt")
+            encoded = self.image_processor(img, return_tensors="pt", padding=True)
             pixel_values.append(encoded.pixel_values)
         pixel_values = torch.stack(pixel_values, dim=0)
 
