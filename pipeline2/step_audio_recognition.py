@@ -37,7 +37,7 @@ audio_sample_list = load_audio_text_image_video(
 )
 
 
-batch_size = 32
+batch_size = 8
 total_runs = 1000
 list_of_runtimes = []
 batch_audio_sample = []
