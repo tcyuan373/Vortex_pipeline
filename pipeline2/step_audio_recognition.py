@@ -13,7 +13,7 @@ import torch
 import numpy as np
 import csv
 
-pkl_dir = "queries_audio1.pkl"
+pkl_dir = "/mydata/msmarco/msmarco_3_clusters/doc_list.pkl" 
 
 model_dir = "iic/SenseVoiceSmall"
 m, kwargs = SenseVoiceSmall.from_pretrained(model=model_dir, device="cuda:0")
