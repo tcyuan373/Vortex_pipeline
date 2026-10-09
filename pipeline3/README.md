@@ -17,7 +17,7 @@ This pipeline creates a minimal end-to-end benchmark flow for YOLOv5 on GPU:
 
 ## Default batch sizes tested
 
-[1, 2, 4, 8, 10, 12, 14, 16, 20, 28, 30, 32, 64]
+[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 28, 30, 32, 64]
 
 ## Run
 

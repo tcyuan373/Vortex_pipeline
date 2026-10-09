@@ -17,7 +17,7 @@ This pipeline benchmarks three model families on GPU using the same pattern as t
 
 ## Default batch sizes
 
-[1, 2, 4, 8, 10, 12, 14, 16, 20, 28, 30, 32, 64]
+[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24]
 
 ## Run
 
@@ -30,5 +30,5 @@ python3 pipeline4/main.py
 
 - OCR uses `easyocr`.
 - Faster R-CNN uses the official pretrained torchvision implementation.
-- DINO uses the Hugging Face `facebook/dinov2_vits14` model.
+- DINO uses the Hugging Face `facebook/dinov2-small` model.
 - The benchmark automatically skips impossible batch sizes if the GPU runs out of memory.

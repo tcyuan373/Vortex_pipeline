@@ -12,7 +12,7 @@ from PIL import Image
 from download_yolov5 import download_yolov5_weights, load_yolov5
 from generate_sample_images import create_sample_images, repeat_image_paths
 
-DEFAULT_BATCH_SIZES = [1, 2, 4, 8, 10, 12, 14, 16, 20, 28, 30, 32, 64]
+DEFAULT_BATCH_SIZES = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 28, 30, 32, 64]
 
 
 def read_gpu_snapshot() -> dict:
@@ -55,7 +55,7 @@ def benchmark_batch_size(model, batch_image_paths: list[str], img_size: int = 64
     for _ in range(warmup_steps):
         images = [Image.open(path).convert("RGB") for path in batch_image_paths]
         with torch.no_grad():
-            _ = model(images, size=img_size, augment=False, verbose=False)
+            _ = model(images, size=img_size, augment=False)
 
     torch.cuda.synchronize()
     latencies_ms: list[float] = []
@@ -73,7 +73,7 @@ def benchmark_batch_size(model, batch_image_paths: list[str], img_size: int = 64
 
         start_event.record()
         with torch.no_grad():
-            _ = model(images, size=img_size, augment=False, verbose=False)
+            _ = model(images, size=img_size, augment=False)
         end_event.record()
         torch.cuda.synchronize()
 

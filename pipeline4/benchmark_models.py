@@ -10,7 +10,7 @@ from PIL import Image
 from download_models import download_dino_model, download_fasterrcnn_model, download_ocr_reader
 from generate_sample_images import create_sample_images, repeat_image_paths
 
-DEFAULT_BATCH_SIZES = [1, 2, 4, 8, 10, 12, 14, 16, 20, 28, 30, 32, 64]
+DEFAULT_BATCH_SIZES = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24]
 
 
 def read_gpu_snapshot() -> dict:
@@ -58,8 +58,8 @@ def benchmark_batch(run_batch_fn, batch_paths: list[str], warmup_steps: int = 2,
         before = read_gpu_snapshot()
         start = time.perf_counter()
         run_batch_fn(batch_paths)
-        elapsed_ms = (time.perf_counter() - start) * 1000.0
         torch.cuda.synchronize()
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
         after = read_gpu_snapshot()
 
         latencies_ms.append(elapsed_ms)
@@ -115,7 +115,7 @@ def benchmark_fasterrcnn(model, sample_paths: list[str], batch_sizes: list[int],
 
         def run_batch(paths):
             images = [Image.open(p).convert("RGB") for p in paths]
-            inputs = [transform(img) for img in images]
+            inputs = [transform(img).to(device) for img in images]
             with torch.no_grad():
                 model(inputs)
 

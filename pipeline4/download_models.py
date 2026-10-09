@@ -54,7 +54,7 @@ def download_dino_model():
     ensure_transformers()
     from transformers import AutoImageProcessor, AutoModel
 
-    model_name = "facebook/dinov2_vits14"
+    model_name = "facebook/dinov2-small"
     processor = AutoImageProcessor.from_pretrained(model_name)
     model = AutoModel.from_pretrained(model_name)
     model.eval()
