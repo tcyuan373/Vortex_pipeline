@@ -299,7 +299,7 @@ def _resize_from_originals(output_dir: Path, sources: dict, size: tuple[int, int
 
 def create_sample_images(
     output_dir: str | Path = "sample_images",
-    num_images: int = 64,
+    num_images: int = 200,
     api_key: str | None = None,
     version: int | None = None,
     zip_path: str | Path | None = None,
@@ -402,10 +402,23 @@ def repeat_image_paths(image_paths: list[str], batch_size: int) -> list[str]:
     return [image_paths[i % len(image_paths)] for i in range(batch_size)]
 
 
+def cycle_batch(image_paths: list[str], batch_size: int, batch_index: int) -> tuple[list[str], int]:
+    """Return the `batch_index`-th consecutive batch of `batch_size` images, wrapping around.
+
+    Batch k covers images [k*batch_size, (k+1)*batch_size) modulo the number of images,
+    so consecutive batches walk through the whole set. Also returns the first index.
+    """
+    if not image_paths:
+        raise ValueError("No sample images were found.")
+    n = len(image_paths)
+    start = (batch_index * batch_size) % n
+    return [image_paths[(start + i) % n] for i in range(batch_size)], start
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Download cow udder photos from Roboflow for benchmarking.")
     parser.add_argument("--output-dir", default="sample_images")
-    parser.add_argument("--num-images", type=int, default=64)
+    parser.add_argument("--num-images", type=int, default=200)
     parser.add_argument("--version", type=int, default=None, help="Dataset version (default: newest that downloads)")
     parser.add_argument("--zip-path", default=None, help="Export zip downloaded in a browser (skips the API)")
     parser.add_argument("--size", default=f"{TARGET_SIZE[0]}x{TARGET_SIZE[1]}", help="Output size WIDTHxHEIGHT")
