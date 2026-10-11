@@ -168,7 +168,7 @@ def save_results_csv(results: list[dict], output_path: str | Path):
             writer.writerow({key: row.get(key) for key in fieldnames})
 
 
-def benchmark_all(batch_sizes: list[int] | None = None, sample_dir: str = "sample_images", num_samples: int = 2) -> list[dict]:
+def benchmark_all(batch_sizes: list[int] | None = None, sample_dir: str = "sample_images", num_samples: int = 64) -> list[dict]:
     if batch_sizes is None:
         batch_sizes = DEFAULT_BATCH_SIZES
 
@@ -188,7 +188,7 @@ def benchmark_all(batch_sizes: list[int] | None = None, sample_dir: str = "sampl
 
 if __name__ == "__main__":
     batch_sizes = DEFAULT_BATCH_SIZES
-    results = benchmark_all(batch_sizes=batch_sizes, sample_dir="sample_images", num_samples=2)
+    results = benchmark_all(batch_sizes=batch_sizes, sample_dir="sample_images", num_samples=64)
     for row in results:
         print(row)
 

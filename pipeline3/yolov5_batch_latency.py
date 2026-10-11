@@ -12,7 +12,7 @@ from PIL import Image
 from download_yolov5 import download_yolov5_weights, load_yolov5
 from generate_sample_images import create_sample_images, repeat_image_paths
 
-DEFAULT_BATCH_SIZES = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 28, 30, 32, 64]
+DEFAULT_BATCH_SIZES = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24, 32, 48, 64]
 
 
 def read_gpu_snapshot() -> dict:

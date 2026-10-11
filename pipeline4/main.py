@@ -9,7 +9,7 @@ from generate_sample_images import create_sample_images
 def main():
     parser = argparse.ArgumentParser(description="Benchmark OCR, Faster R-CNN, and DINO across multiple batch sizes on GPU.")
     parser.add_argument("--sample-dir", default="sample_images")
-    parser.add_argument("--num-samples", type=int, default=2)
+    parser.add_argument("--num-samples", type=int, default=64)
     parser.add_argument("--batch-sizes", nargs="*", type=int, default=DEFAULT_BATCH_SIZES)
     parser.add_argument("--output-csv", default="results/model_latency_benchmark.csv")
     args = parser.parse_args()
