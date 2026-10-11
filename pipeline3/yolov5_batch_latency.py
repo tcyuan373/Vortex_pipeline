@@ -105,7 +105,7 @@ def benchmark_batch_size(model, batch_image_paths: list[str], img_size: int = 64
 
 def benchmark_batch_sizes(model_name: str = "yolov5s", sample_image_paths: list[str] | None = None, batch_sizes: list[int] | None = None, img_size: int = 640, warmup_steps: int = 2, repeat_steps: int = 5) -> list[dict]:
     if sample_image_paths is None:
-        sample_image_paths = create_sample_images(num_images=2)
+        sample_image_paths = create_sample_images(num_images=64)
     if batch_sizes is None:
         batch_sizes = DEFAULT_BATCH_SIZES
 
@@ -160,7 +160,7 @@ def main():
     parser = argparse.ArgumentParser(description="Benchmark YOLOv5 batch inference latency, throughput, GPU memory, and utilization.")
     parser.add_argument("--model-name", default="yolov5s", help="YOLOv5 model name, e.g. yolov5n, yolov5s, yolov5m")
     parser.add_argument("--sample-dir", default="sample_images", help="Directory containing demo images")
-    parser.add_argument("--num-samples", type=int, default=2, help="Number of base sample images to generate")
+    parser.add_argument("--num-samples", type=int, default=64, help="Number of base sample images to generate")
     parser.add_argument("--batch-sizes", nargs="*", type=int, default=DEFAULT_BATCH_SIZES, help="Batch sizes to benchmark")
     parser.add_argument("--img-size", type=int, default=640, help="Input image size sent to YOLOv5")
     parser.add_argument("--warmup-steps", type=int, default=2, help="Warmup passes before timing")
